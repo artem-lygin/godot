@@ -259,6 +259,14 @@ Vector<String> EditorExportPreset::get_files_to_export() const {
 	return files;
 }
 
+HashSet<String> EditorExportPreset::get_selected_files() const {
+	return selected_files;
+}
+
+void EditorExportPreset::set_selected_files(const HashSet<String> &p_files) {
+	selected_files = p_files;
+}
+
 Dictionary EditorExportPreset::get_customized_files() const {
 	Dictionary files;
 	for (const KeyValue<String, FileExportMode> &E : customized_files) {
@@ -311,13 +319,15 @@ String EditorExportPreset::get_name() const {
 }
 
 void EditorExportPreset::set_runnable(bool p_enable) {
-	runnable = p_enable;
-	EditorExport::singleton->emit_presets_runnable_changed();
-	EditorExport::singleton->save_presets();
+	if (p_enable) {
+		EditorExport::singleton->set_runnable_preset(this);
+	} else {
+		EditorExport::singleton->unset_runnable_preset(this);
+	}
 }
 
 bool EditorExportPreset::is_runnable() const {
-	return runnable;
+	return EditorExport::singleton->get_runnable_preset_for_platform(platform).ptr() == this;
 }
 
 bool EditorExportPreset::are_advanced_options_enabled() const {

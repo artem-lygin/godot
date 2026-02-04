@@ -88,7 +88,7 @@ bool ObjectDBProfilerPanel::handle_debug_message(const String &p_message, const 
 		partial_snapshots[request_id] = PartialSnapshot();
 		partial_snapshots[request_id].total_size = total_size;
 		Array args = { request_id, 0, SNAPSHOT_CHUNK_SIZE };
-		take_snapshot->set_text(vformat(TTRC("Receiving Snapshot (0/%s MiB)"), _to_mb(total_size)));
+		take_snapshot->set_text(vformat(TTR("Receiving Snapshot (0/%s MiB)"), _to_mb(total_size)));
 		EditorDebuggerNode::get_singleton()->get_current_debugger()->send_message("snapshot:request_snapshot_chunk", args);
 		return true;
 	}
@@ -96,7 +96,7 @@ bool ObjectDBProfilerPanel::handle_debug_message(const String &p_message, const 
 		int request_id = p_data[0];
 		PartialSnapshot &chunk = partial_snapshots[request_id];
 		chunk.data.append_array(p_data[1]);
-		take_snapshot->set_text(vformat(TTRC("Receiving Snapshot (%s/%s MiB)"), _to_mb(chunk.data.size()), _to_mb(chunk.total_size)));
+		take_snapshot->set_text(vformat(TTR("Receiving Snapshot (%s/%s MiB)"), _to_mb(chunk.data.size()), _to_mb(chunk.total_size)));
 		if (chunk.data.size() != chunk.total_size) {
 			Array args = { request_id, chunk.data.size(), chunk.data.size() + SNAPSHOT_CHUNK_SIZE };
 			EditorDebuggerNode::get_singleton()->get_current_debugger()->send_message("snapshot:request_snapshot_chunk", args);
@@ -113,12 +113,18 @@ bool ObjectDBProfilerPanel::handle_debug_message(const String &p_message, const 
 
 void ObjectDBProfilerPanel::receive_snapshot(int request_id) {
 	const Vector<uint8_t> &in_data = partial_snapshots[request_id].data;
-	String snapshot_file_name = Time::get_singleton()->get_datetime_string_from_system(false).replace_char('T', '_').replace_char(':', '-');
 	Ref<DirAccess> snapshot_dir = _get_and_create_snapshot_storage_dir();
 	if (snapshot_dir.is_valid()) {
 		Error err;
+		String base_snapshot_file_name = Time::get_singleton()->get_datetime_string_from_system(false).replace_char('T', '_').replace_char(':', '-');
+		String snapshot_file_name = base_snapshot_file_name;
 		String current_dir = snapshot_dir->get_current_dir();
 		String joined_dir = current_dir.path_join(snapshot_file_name) + ".odb_snapshot";
+
+		for (int i = 2; FileAccess::exists(joined_dir); i++) {
+			snapshot_file_name = base_snapshot_file_name + '_' + String::chr('0' + i);
+			joined_dir = current_dir.path_join(snapshot_file_name) + ".odb_snapshot";
+		}
 
 		Ref<FileAccess> file = FileAccess::open(joined_dir, FileAccess::WRITE, &err);
 		if (err == OK) {
@@ -375,6 +381,7 @@ ObjectDBProfilerPanel::ObjectDBProfilerPanel() {
 	snapshot_list->set_h_size_flags(SizeFlags::SIZE_EXPAND_FILL);
 	snapshot_list->set_v_size_flags(SizeFlags::SIZE_EXPAND_FILL);
 	snapshot_list->set_anchors_preset(LayoutPreset::PRESET_FULL_RECT);
+	snapshot_list->set_theme_type_variation("TreeSecondary");
 
 	snapshot_list->set_allow_rmb_select(true);
 	snapshot_list->connect("item_mouse_selected", callable_mp(this, &ObjectDBProfilerPanel::_snapshot_rmb));
@@ -397,6 +404,7 @@ ObjectDBProfilerPanel::ObjectDBProfilerPanel() {
 
 	// Tabs of various views right for each snapshot.
 	view_tabs = memnew(TabContainer);
+	view_tabs->set_theme_type_variation("TabContainerInner");
 	root_container->add_child(view_tabs);
 	view_tabs->set_custom_minimum_size(Size2(300 * EDSCALE, 0));
 	view_tabs->set_v_size_flags(SizeFlags::SIZE_EXPAND_FILL);

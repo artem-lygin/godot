@@ -49,6 +49,7 @@
 #include "tests/core/io/test_http_client.h"
 #include "tests/core/io/test_image.h"
 #include "tests/core/io/test_ip.h"
+#include "tests/core/io/test_ip_address.h"
 #include "tests/core/io/test_json.h"
 #include "tests/core/io/test_json_native.h"
 #include "tests/core/io/test_logger.h"
@@ -176,7 +177,9 @@
 #include "tests/scene/test_convert_transform_modifier_3d.h"
 #include "tests/scene/test_copy_transform_modifier_3d.h"
 #include "tests/scene/test_decal.h"
+#ifdef MODULE_GLTF_ENABLED
 #include "tests/scene/test_gltf_document.h"
+#endif
 #include "tests/scene/test_path_3d.h"
 #include "tests/scene/test_path_follow_3d.h"
 #include "tests/scene/test_primitives.h"

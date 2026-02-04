@@ -31,7 +31,7 @@
 #import "os_macos.h"
 
 #import "dir_access_macos.h"
-#ifdef DEBUG_ENABLED
+#ifdef TOOLS_ENABLED
 #import "display_server_embedded.h"
 #endif
 #import "display_server_macos.h"
@@ -39,6 +39,7 @@
 #import "godot_application_delegate.h"
 
 #include "core/crypto/crypto_core.h"
+#include "core/input/input.h"
 #include "core/io/file_access.h"
 #include "core/os/main_loop.h"
 #include "core/profiling/profiling.h"
@@ -531,8 +532,11 @@ String OS_MacOS::get_system_dir(SystemDir p_dir, bool p_shared_storage) const {
 
 Error OS_MacOS::shell_show_in_file_manager(String p_path, bool p_open_folder) {
 	bool open_folder = false;
-	if (DirAccess::dir_exists_absolute(p_path) && p_open_folder) {
-		open_folder = true;
+	if (p_open_folder) {
+		Ref<DirAccess> dir = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+		if (dir->dir_exists(p_path) && !dir->is_bundle(p_path)) {
+			open_folder = true;
+		}
 	}
 
 	if (!p_path.begins_with("file://")) {
@@ -1088,8 +1092,6 @@ static void handle_interrupt(int sig) {
 }
 
 void OS_MacOS_NSApp::start_main() {
-	godot_init_profiler();
-
 	Error err;
 	@autoreleasepool {
 		err = Main::setup(execpath, argc, argv);
@@ -1258,7 +1260,7 @@ OS_MacOS_Headless::OS_MacOS_Headless(const char *p_execpath, int p_argc, char **
 
 // MARK: - OS_MacOS_Embedded
 
-#ifdef DEBUG_ENABLED
+#ifdef TOOLS_ENABLED
 
 void OS_MacOS_Embedded::run() {
 	CFRunLoopGetCurrent();

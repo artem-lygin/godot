@@ -33,7 +33,6 @@
 #include "core/io/resource.h"
 #include "core/templates/self_list.h"
 #include "scene/resources/shader.h"
-#include "scene/resources/texture.h"
 #include "servers/rendering/rendering_server.h"
 
 class Material : public Resource {
@@ -551,7 +550,6 @@ private:
 	float anisotropy = 0.0f;
 	float heightmap_scale = 0.0f;
 	float subsurface_scattering_strength = 0.0f;
-	float transmittance_amount = 0.0f;
 	Color transmittance_color;
 	float transmittance_depth = 0.0f;
 	float transmittance_boost = 0.0f;

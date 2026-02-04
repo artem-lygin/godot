@@ -135,18 +135,12 @@ void ExtendGDScriptParser::update_diagnostics() {
 		diagnostic.severity = LSP::DiagnosticSeverity::Error;
 		diagnostic.message = error.message;
 		diagnostic.source = "gdscript";
-		diagnostic.code = -1;
-		LSP::Range range;
-		LSP::Position pos;
-		const PackedStringArray line_array = get_lines();
-		int line = CLAMP(LINE_NUMBER_TO_INDEX(error.line), 0, line_array.size() - 1);
-		const String &line_text = line_array[line];
-		pos.line = line;
-		pos.character = line_text.length() - line_text.strip_edges(true, false).length();
-		range.start = pos;
-		range.end = range.start;
-		range.end.character = line_text.strip_edges(false).length();
-		diagnostic.range = range;
+
+		GodotRange godot_range(
+				GodotPosition(error.start_line, error.start_column),
+				GodotPosition(error.end_line, error.end_column));
+
+		diagnostic.range = godot_range.to_lsp(get_lines());
 		diagnostics.push_back(diagnostic);
 	}
 
@@ -156,17 +150,12 @@ void ExtendGDScriptParser::update_diagnostics() {
 		diagnostic.severity = LSP::DiagnosticSeverity::Warning;
 		diagnostic.message = "(" + warning.get_name() + "): " + warning.get_message();
 		diagnostic.source = "gdscript";
-		diagnostic.code = warning.code;
-		LSP::Range range;
-		LSP::Position pos;
-		int line = LINE_NUMBER_TO_INDEX(warning.start_line);
-		const String &line_text = get_lines()[line];
-		pos.line = line;
-		pos.character = line_text.length() - line_text.strip_edges(true, false).length();
-		range.start = pos;
-		range.end = pos;
-		range.end.character = line_text.strip_edges(false).length();
-		diagnostic.range = range;
+
+		GodotRange godot_range(
+				GodotPosition(warning.start_line, warning.start_column),
+				GodotPosition(warning.end_line, warning.end_column));
+
+		diagnostic.range = godot_range.to_lsp(get_lines());
 		diagnostics.push_back(diagnostic);
 	}
 }
@@ -344,8 +333,9 @@ void ExtendGDScriptParser::parse_class_symbol(const GDScriptParser::ClassNode *p
 					if (res.is_valid() && !res->get_path().is_empty()) {
 						value_text = "preload(\"" + res->get_path() + "\")";
 						if (symbol.documentation.is_empty()) {
-							if (HashMap<String, ExtendGDScriptParser *>::Iterator S = GDScriptLanguageProtocol::get_singleton()->get_workspace()->scripts.find(res->get_path())) {
-								symbol.documentation = S->value->class_symbol.documentation;
+							ExtendGDScriptParser *parser = GDScriptLanguageProtocol::get_singleton()->get_parse_result(res->get_path());
+							if (parser) {
+								symbol.documentation = parser->class_symbol.documentation;
 							}
 						}
 					} else {
@@ -1047,18 +1037,17 @@ Dictionary ExtendGDScriptParser::generate_api() const {
 	return api;
 }
 
-Error ExtendGDScriptParser::parse(const String &p_code, const String &p_path) {
+void ExtendGDScriptParser::parse(const String &p_code, const String &p_path) {
 	path = p_path;
 	lines = p_code.split("\n");
 
-	Error err = GDScriptParser::parse(p_code, p_path, false);
+	parse_result = GDScriptParser::parse(p_code, p_path, false);
 	GDScriptAnalyzer analyzer(this);
 
-	if (err == OK) {
-		err = analyzer.analyze();
+	if (parse_result == OK) {
+		parse_result = analyzer.analyze();
 	}
 	update_diagnostics();
 	update_symbols();
 	update_document_links(p_code);
-	return err;
 }

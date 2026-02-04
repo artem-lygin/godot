@@ -565,6 +565,7 @@ void TabContainer::_on_tab_hovered(int p_tab) {
 void TabContainer::_on_tab_changed(int p_tab) {
 	callable_mp(this, &TabContainer::_repaint).call_deferred();
 	queue_redraw();
+	queue_accessibility_update();
 
 	emit_signal(SNAME("tab_changed"), p_tab);
 }
@@ -1031,15 +1032,13 @@ Size2 TabContainer::get_minimum_size() const {
 		ms.width += theme_cache.tabbar_style->get_margin(SIDE_LEFT) + theme_cache.tabbar_style->get_margin(SIDE_RIGHT);
 		ms.height += theme_cache.tabbar_style->get_margin(SIDE_TOP) + theme_cache.tabbar_style->get_margin(SIDE_BOTTOM);
 
-		if (!get_clip_tabs()) {
-			if (get_popup()) {
-				ms.width += theme_cache.menu_icon->get_width();
-			}
+		if (get_popup()) {
+			ms.width += theme_cache.menu_icon->get_width();
+		}
 
-			if (theme_cache.side_margin > 0 && get_tab_alignment() != TabBar::ALIGNMENT_CENTER &&
-					(get_tab_alignment() != TabBar::ALIGNMENT_RIGHT || !get_popup())) {
-				ms.width += theme_cache.side_margin;
-			}
+		if (theme_cache.side_margin > 0 && get_tab_alignment() != TabBar::ALIGNMENT_CENTER &&
+				(get_tab_alignment() != TabBar::ALIGNMENT_RIGHT || !get_popup())) {
+			ms.width += theme_cache.side_margin;
 		}
 	}
 
@@ -1078,9 +1077,7 @@ void TabContainer::set_popup(Node *p_popup) {
 	if (had_popup != bool(popup)) {
 		queue_redraw();
 		_update_margins();
-		if (!get_clip_tabs()) {
-			update_minimum_size();
-		}
+		update_minimum_size();
 	}
 }
 
@@ -1273,7 +1270,7 @@ void TabContainer::_bind_methods() {
 	base_property_helper.set_prefix("tab_");
 	base_property_helper.set_array_length_getter(&TabContainer::get_tab_count);
 	base_property_helper.register_property(PropertyInfo(Variant::STRING, "title"), defaults.title, &TabContainer::set_tab_title, &TabContainer::get_tab_title);
-	base_property_helper.register_property(PropertyInfo(Variant::OBJECT, "icon", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), defaults.icon, &TabContainer::set_tab_icon, &TabContainer::get_tab_icon);
+	base_property_helper.register_property(PropertyInfo(Variant::OBJECT, "icon", PROPERTY_HINT_RESOURCE_TYPE, Texture2D::get_class_static()), defaults.icon, &TabContainer::set_tab_icon, &TabContainer::get_tab_icon);
 	base_property_helper.register_property(PropertyInfo(Variant::BOOL, "disabled"), defaults.disabled, &TabContainer::set_tab_disabled, &TabContainer::is_tab_disabled);
 	base_property_helper.register_property(PropertyInfo(Variant::BOOL, "hidden"), defaults.hidden, &TabContainer::set_tab_hidden, &TabContainer::is_tab_hidden);
 	PropertyListHelper::register_base_helper(&base_property_helper);

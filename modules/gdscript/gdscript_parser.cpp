@@ -186,7 +186,8 @@ GDScriptParser::GDScriptParser() {
 		register_annotation(MethodInfo("@warning_ignore_start", PropertyInfo(Variant::STRING, "warning")), AnnotationInfo::STANDALONE, &GDScriptParser::warning_ignore_region_annotations, varray(), true);
 		register_annotation(MethodInfo("@warning_ignore_restore", PropertyInfo(Variant::STRING, "warning")), AnnotationInfo::STANDALONE, &GDScriptParser::warning_ignore_region_annotations, varray(), true);
 		// Networking.
-		register_annotation(MethodInfo("@rpc", PropertyInfo(Variant::STRING, "mode"), PropertyInfo(Variant::STRING, "sync"), PropertyInfo(Variant::STRING, "transfer_mode"), PropertyInfo(Variant::INT, "transfer_channel")), AnnotationInfo::FUNCTION, &GDScriptParser::rpc_annotation, varray("authority", "call_remote", "unreliable", 0));
+		// Keep in sync with `rpc_annotation()` and `SceneRPCInterface::_parse_rpc_config()`.
+		register_annotation(MethodInfo("@rpc", PropertyInfo(Variant::STRING, "mode"), PropertyInfo(Variant::STRING, "sync"), PropertyInfo(Variant::STRING, "transfer_mode"), PropertyInfo(Variant::INT, "transfer_channel")), AnnotationInfo::FUNCTION, &GDScriptParser::rpc_annotation, varray("authority", "call_remote", "reliable", 0));
 	}
 
 #ifdef DEBUG_ENABLED
@@ -234,12 +235,22 @@ void GDScriptParser::push_error(const String &p_message, const Node *p_origin) {
 	// TODO: Improve error reporting by pointing at source code.
 	// TODO: Errors might point at more than one place at once (e.g. show previous declaration).
 	panic_mode = true;
-	// TODO: Improve positional information.
+	ParserError err;
+	err.message = p_message;
+
 	if (p_origin == nullptr) {
-		errors.push_back({ p_message, previous.start_line, previous.start_column });
+		err.start_line = previous.start_line;
+		err.start_column = previous.start_column;
+		err.end_line = previous.end_line;
+		err.end_column = previous.end_column;
 	} else {
-		errors.push_back({ p_message, p_origin->start_line, p_origin->start_column });
+		err.start_line = p_origin->start_line;
+		err.start_column = p_origin->start_column;
+		err.end_line = p_origin->end_line;
+		err.end_column = p_origin->end_column;
 	}
+
+	errors.push_back(err);
 }
 
 #ifdef DEBUG_ENABLED
@@ -278,7 +289,9 @@ void GDScriptParser::apply_pending_warnings() {
 		warning.code = pw.code;
 		warning.symbols = pw.symbols;
 		warning.start_line = pw.source->start_line;
+		warning.start_column = pw.source->start_column;
 		warning.end_line = pw.source->end_line;
+		warning.end_column = pw.source->end_column;
 
 		if (pw.treated_as_error) {
 			push_error(warning.get_message() + String(" (Warning treated as error.)"), pw.source);
@@ -3453,8 +3466,9 @@ GDScriptParser::ExpressionNode *GDScriptParser::parse_call(ExpressionNode *p_pre
 		if (!check(GDScriptTokenizer::Token::PERIOD)) {
 			make_completion_context(COMPLETION_SUPER, call);
 		}
-		push_multiline(true);
-		if (match(GDScriptTokenizer::Token::PARENTHESIS_OPEN)) {
+		if (check(GDScriptTokenizer::Token::PARENTHESIS_OPEN)) {
+			push_multiline(true);
+			advance();
 			// Implicit call to the parent method of the same name.
 			if (current_function == nullptr) {
 				push_error(R"(Cannot use implicit "super" call outside of a function.)");
@@ -3471,15 +3485,18 @@ GDScriptParser::ExpressionNode *GDScriptParser::parse_call(ExpressionNode *p_pre
 			consume(GDScriptTokenizer::Token::PERIOD, R"(Expected "." or "(" after "super".)");
 			make_completion_context(COMPLETION_SUPER_METHOD, call);
 			if (!consume(GDScriptTokenizer::Token::IDENTIFIER, R"(Expected function name after ".".)")) {
-				pop_multiline();
 				complete_extents(call);
 				return nullptr;
 			}
 			IdentifierNode *identifier = parse_identifier();
 			call->callee = identifier;
 			call->function_name = identifier->name;
-			if (!consume(GDScriptTokenizer::Token::PARENTHESIS_OPEN, R"(Expected "(" after function name.)")) {
-				pop_multiline();
+
+			if (check(GDScriptTokenizer::Token::PARENTHESIS_OPEN)) {
+				push_multiline(true);
+				advance();
+			} else {
+				push_error(R"(Expected "(" after function name.)");
 				complete_extents(call);
 				return nullptr;
 			}
@@ -5199,6 +5216,7 @@ bool GDScriptParser::rpc_annotation(AnnotationNode *p_annotation, Node *p_target
 		return false;
 	}
 
+	// Default values should match the annotation registration defaults and `SceneRPCInterface::_parse_rpc_config()`.
 	Dictionary rpc_config;
 	rpc_config["rpc_mode"] = MultiplayerAPI::RPC_MODE_AUTHORITY;
 	if (!p_annotation->resolved_arguments.is_empty()) {

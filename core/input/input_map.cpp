@@ -229,6 +229,10 @@ void InputMap::action_erase_event(const StringName &p_action, RequiredParam<Inpu
 void InputMap::action_erase_events(const StringName &p_action) {
 	ERR_FAIL_COND_MSG(!input_map.has(p_action), suggest_actions(p_action));
 
+	if (Input::get_singleton()->is_action_pressed(p_action)) {
+		Input::get_singleton()->action_release(p_action);
+	}
+
 	input_map[p_action].inputs.clear();
 }
 
@@ -896,7 +900,7 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins_with_featur
 }
 
 void InputMap::load_default() {
-	HashMap<String, List<Ref<InputEvent>>> builtins = get_builtins_with_feature_overrides_applied();
+	HashMap<String, List<Ref<InputEvent>>> builtins(get_builtins_with_feature_overrides_applied());
 
 	for (const KeyValue<String, List<Ref<InputEvent>>> &E : builtins) {
 		String name = E.key;

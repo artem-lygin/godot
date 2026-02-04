@@ -461,6 +461,7 @@ void ShaderEditorPlugin::_close_shader(int p_index) {
 		shader_list->show(); // Make sure the panel is visible, because it can't be toggled without open shaders.
 		shader_tabs->hide();
 		files_split->add_child(file_menu);
+		file_menu->set_v_size_flags(Control::SIZE_SHRINK_BEGIN);
 	} else {
 		_switch_to_editor(edited_shaders[shader_tabs->get_current_tab()].shader_editor);
 	}
@@ -668,6 +669,12 @@ Variant ShaderEditorPlugin::get_drag_data_fw(const Point2 &p_point, Control *p_f
 	drag_data["type"] = "shader_list_element";
 	drag_data["shader_list_element"] = idx;
 
+	Ref<Resource> shader = edited_shaders[idx].shader;
+	if (shader.is_null()) {
+		shader = edited_shaders[idx].shader_inc;
+	}
+	drag_data["file_path"] = shader->get_path();
+
 	return drag_data;
 }
 
@@ -768,8 +775,11 @@ void ShaderEditorPlugin::_switch_to_editor(ShaderEditor *p_editor, bool p_focus)
 	if (file_menu->get_parent() != nullptr) {
 		file_menu->get_parent()->remove_child(file_menu);
 	}
+
 	shader_tabs->show();
 	p_editor->use_menu_bar(file_menu);
+	file_menu->set_v_size_flags(Control::SIZE_EXPAND_FILL);
+
 	if (p_focus) {
 		TextShaderEditor *text_shader_editor = Object::cast_to<TextShaderEditor>(p_editor);
 		if (text_shader_editor) {
@@ -828,6 +838,7 @@ void ShaderEditorPlugin::_notification(int p_what) {
 			EditorNode::get_singleton()->connect("scene_closed", callable_mp(this, &ShaderEditorPlugin::_close_builtin_shaders_from_scene));
 			FileSystemDock::get_singleton()->connect("file_removed", callable_mp(this, &ShaderEditorPlugin::_file_removed));
 			EditorNode::get_singleton()->connect("resource_saved", callable_mp(this, &ShaderEditorPlugin::_res_saved_callback));
+			EditorFileSystem::get_singleton()->connect("filesystem_changed", callable_mp(this, &ShaderEditorPlugin::_update_shader_list));
 		} break;
 	}
 }
@@ -838,7 +849,7 @@ void ShaderEditorPlugin::shortcut_input(const Ref<InputEvent> &p_event) {
 	}
 
 	if (make_floating_shortcut.is_valid() && make_floating_shortcut->matches_event(p_event)) {
-		EditorDockManager::get_singleton()->make_dock_floating(shader_dock);
+		shader_dock->make_floating();
 	}
 }
 
@@ -855,8 +866,9 @@ ShaderEditorPlugin::ShaderEditorPlugin() {
 	shader_dock->set_name(TTRC("Shader Editor"));
 	shader_dock->set_icon_name("ShaderDock");
 	shader_dock->set_dock_shortcut(ED_SHORTCUT_AND_COMMAND("bottom_panels/toggle_shader_editor_bottom_panel", TTRC("Toggle Shader Editor Dock"), KeyModifierMask::ALT | Key::S));
-	shader_dock->set_default_slot(DockConstants::DOCK_SLOT_BOTTOM);
+	shader_dock->set_default_slot(EditorDock::DOCK_SLOT_BOTTOM);
 	shader_dock->set_available_layouts(EditorDock::DOCK_LAYOUT_HORIZONTAL | EditorDock::DOCK_LAYOUT_FLOATING);
+	shader_dock->set_custom_minimum_size(Size2(460, 300) * EDSCALE);
 	EditorDockManager::get_singleton()->add_dock(shader_dock);
 
 	set_process_shortcut_input(true);
@@ -884,7 +896,6 @@ ShaderEditorPlugin::ShaderEditorPlugin() {
 	files_split->add_child(shader_list);
 
 	shader_tabs = memnew(TabContainer);
-	shader_tabs->set_custom_minimum_size(Size2(460, 300) * EDSCALE);
 	shader_tabs->set_tabs_visible(false);
 	shader_tabs->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	shader_tabs->set_v_size_flags(Control::SIZE_EXPAND_FILL);
