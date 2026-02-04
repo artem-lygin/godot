@@ -31,8 +31,13 @@
 #pragma once
 
 #include "core/io/resource.h"
+#include "core/math/color.h"
 #include "core/object/gdvirtual.gen.inc"
+#include "core/object/object_id.h"
+#include "core/templates/hash_map.h"
 #include "core/templates/rb_map.h"
+#include "core/templates/vector.h"
+#include "core/variant/dictionary.h"
 
 class TextEdit;
 
@@ -76,6 +81,7 @@ class CodeHighlighter : public SyntaxHighlighter {
 private:
 	struct ColorRegion {
 		Color color;
+		int font_style = 0;
 		String start_key;
 		String end_key;
 		bool line_only = false;
@@ -84,7 +90,9 @@ private:
 	HashMap<int, int> color_region_cache;
 
 	Dictionary keywords;
+	Dictionary keyword_styles;
 	Dictionary member_keywords;
+	Dictionary member_keyword_styles;
 
 	Color font_color;
 	Color member_color;
@@ -112,6 +120,15 @@ public:
 	void clear_keyword_colors();
 	Dictionary get_keyword_colors() const;
 
+	void add_keyword_style(const String &p_keyword, int p_font_style);
+	void remove_keyword_style(const String &p_keyword);
+	bool has_keyword_style(const String &p_keyword) const;
+	int get_keyword_style(const String &p_keyword) const;
+
+	void set_keyword_styles(const Dictionary p_keyword_styles);
+	void clear_keyword_styles();
+	Dictionary get_keyword_styles() const;
+
 	void add_member_keyword_color(const String &p_member_keyword, const Color &p_color);
 	void remove_member_keyword_color(const String &p_member_keyword);
 	bool has_member_keyword_color(const String &p_member_keyword) const;
@@ -121,7 +138,16 @@ public:
 	void clear_member_keyword_colors();
 	Dictionary get_member_keyword_colors() const;
 
-	void add_color_region(const String &p_start_key, const String &p_end_key, const Color &p_color, bool p_line_only = false);
+	void add_member_keyword_style(const String &p_member_keyword, int p_font_style);
+	void remove_member_keyword_style(const String &p_member_keyword);
+	bool has_member_keyword_style(const String &p_member_keyword) const;
+	int get_member_keyword_style(const String &p_member_keyword) const;
+
+	void set_member_keyword_styles(const Dictionary &p_member_keyword_styles);
+	void clear_member_keyword_styles();
+	Dictionary get_member_keyword_styles() const;
+
+	void add_color_region(const String &p_start_key, const String &p_end_key, const Color &p_color, bool p_line_only = false, int p_font_style = 0);
 	void remove_color_region(const String &p_start_key);
 	bool has_color_region(const String &p_start_key) const;
 

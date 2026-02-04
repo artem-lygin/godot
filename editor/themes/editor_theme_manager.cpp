@@ -578,6 +578,8 @@ void EditorThemeManager::_populate_text_editor_styles(const Ref<EditorTheme> &p_
 
 	// Now theme is loaded, apply it to CodeEdit.
 	p_theme->set_font(SceneStringName(font), "CodeEdit", p_theme->get_font(SNAME("source"), EditorStringName(EditorFonts)));
+	p_theme->set_font("font_bold", "CodeEdit", p_theme->get_font(SNAME("source_bold"), EditorStringName(EditorFonts)));
+	p_theme->set_font("font_italic", "CodeEdit", p_theme->get_font(SNAME("source_italic"), EditorStringName(EditorFonts)));
 	p_theme->set_font_size(SceneStringName(font_size), "CodeEdit", p_theme->get_font_size(SNAME("source_size"), EditorStringName(EditorFonts)));
 
 	/* clang-format off */

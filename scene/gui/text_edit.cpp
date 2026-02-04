@@ -63,6 +63,26 @@ void TextEdit::Text::set_font_size(int p_font_size) {
 	is_dirty = true;
 }
 
+void TextEdit::Text::set_font_bold(const Ref<Font> &p_font) {
+	if (font_bold == p_font) {
+		return;
+	}
+	font_bold = p_font;
+	is_dirty = true;
+}
+
+void TextEdit::Text::set_font_italic(const Ref<Font> &p_font) {
+	if (font_italic == p_font) {
+		return;
+	}
+	font_italic = p_font;
+	is_dirty = true;
+}
+
+void TextEdit::Text::set_owner(TextEdit *p_owner) {
+	owner = p_owner;
+}
+
 void TextEdit::Text::set_tab_size(int p_tab_size) {
 	if (tab_size == p_tab_size) {
 		return;
@@ -318,7 +338,70 @@ void TextEdit::Text::invalidate_cache(int p_line, bool p_text_changed) {
 			}
 		}
 		String remaining_string = text_with_ime.substr(from);
-		text_line.data_buf->add_string(remaining_string, font, font_size, language);
+
+		Dictionary syntax_map;
+		if (owner && owner->syntax_highlighter.is_valid()) {
+			syntax_map = owner->syntax_highlighter->get_line_syntax_highlighting(p_line);
+		}
+
+		if (syntax_map.is_empty()) {
+			text_line.data_buf->add_string(remaining_string, font, font_size, language);
+		} else {
+			Vector<int> sorted_keys;
+			const Variant *K = nullptr;
+			while ((K = syntax_map.next(K))) {
+				sorted_keys.push_back((int)*K);
+			}
+			sorted_keys.sort();
+
+			int current_str_idx = 0;
+			while (current_str_idx < remaining_string.length()) {
+				int abs_idx = from + current_str_idx;
+
+				Ref<Font> f = font;
+
+				int key_idx = -1;
+				int ub = -1;
+
+				for (int i = 0; i < sorted_keys.size(); i++) {
+					if (sorted_keys[i] > abs_idx) {
+						ub = i;
+						break;
+					}
+				}
+
+				if (ub == -1) {
+					if (sorted_keys.size() > 0) {
+						key_idx = sorted_keys.size() - 1;
+					}
+				} else {
+					key_idx = ub - 1;
+				}
+
+				if (key_idx >= 0) {
+					int k = sorted_keys[key_idx];
+					Dictionary d = syntax_map[k];
+					if (d.get("bold", false) && font_bold.is_valid()) {
+						f = font_bold;
+					} else if (d.get("italic", false) && font_italic.is_valid()) {
+						f = font_italic;
+					}
+				}
+
+				int segment_len = remaining_string.length() - current_str_idx;
+
+				if (ub != -1) {
+					int next_key = sorted_keys[ub];
+					int dist = next_key - abs_idx;
+					if (dist > 0 && dist < segment_len) {
+						segment_len = dist;
+					}
+				}
+
+				text_line.data_buf->add_string(remaining_string.substr(current_str_idx, segment_len), f, font_size, language);
+				current_str_idx += segment_len;
+			}
+		}
 	}
 	if (!bidi_override_with_ime.is_empty()) {
 		TS->shaped_text_set_bidi_override(text_line.data_buf->get_rid(), bidi_override_with_ime);
@@ -416,7 +499,7 @@ void TextEdit::Text::invalidate_font() {
 	}
 
 	for (int i = 0; i < text.size(); i++) {
-		invalidate_cache(i, false);
+		invalidate_cache(i, true);
 	}
 	is_dirty = false;
 }
@@ -3398,6 +3481,9 @@ void TextEdit::_update_theme_item_cache() {
 	theme_cache.base_scale = get_theme_default_base_scale();
 	use_selected_font_color = theme_cache.font_selected_color != Color(0, 0, 0, 0);
 
+	theme_cache.font_bold = get_theme_font(SNAME("font_bold"));
+	theme_cache.font_italic = get_theme_font(SNAME("font_italic"));
+
 	if (text.get_line_height() + theme_cache.line_spacing < 1) {
 		WARN_PRINT("Line height is too small, please increase font_size and/or line_spacing");
 	}
@@ -3415,6 +3501,8 @@ void TextEdit::_update_caches(bool p_invalidate_all) {
 	text.set_direction_and_language(dir, lang);
 	text.set_draw_control_chars(draw_control_chars);
 	text.set_font(theme_cache.font);
+	text.set_font_bold(theme_cache.font_bold);
+	text.set_font_italic(theme_cache.font_italic);
 	text.set_font_size(theme_cache.font_size);
 	if (p_invalidate_all) {
 		text.invalidate_all();
@@ -7636,6 +7724,8 @@ void TextEdit::_bind_methods() {
 	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_ICON, TextEdit, space_icon, "space");
 
 	BIND_THEME_ITEM(Theme::DATA_TYPE_FONT, TextEdit, font);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_FONT, TextEdit, font_bold);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_FONT, TextEdit, font_italic);
 	BIND_THEME_ITEM(Theme::DATA_TYPE_FONT_SIZE, TextEdit, font_size);
 	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, TextEdit, font_color);
 	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, TextEdit, font_readonly_color);
@@ -9271,6 +9361,7 @@ TextEdit::TextEdit(const String &p_placeholder) {
 	set_process_unhandled_key_input(true);
 
 	text.set_tab_size(text.get_tab_size());
+	text.set_owner(this);
 
 	text_ci = RS::get_singleton()->canvas_item_create();
 	RS::get_singleton()->canvas_item_set_parent(text_ci, get_canvas_item());

@@ -175,8 +175,12 @@ private:
 
 		mutable Vector<Line> text;
 		Ref<Font> font;
+		Ref<Font> font_bold;
+		Ref<Font> font_italic;
 		int font_size = -1;
 		int font_height = 0;
+
+		TextEdit *owner = nullptr;
 
 		String language;
 		TextServer::Direction direction = TextServer::DIRECTION_AUTO;
@@ -205,6 +209,9 @@ private:
 		bool is_indent_wrapped_lines() const;
 
 		void set_font(const Ref<Font> &p_font);
+		void set_font_bold(const Ref<Font> &p_font);
+		void set_font_italic(const Ref<Font> &p_font);
+		void set_owner(TextEdit *p_owner);
 		void set_font_size(int p_font_size);
 		void set_direction_and_language(TextServer::Direction p_direction, const String &p_language);
 		void set_draw_control_chars(bool p_enabled);
@@ -631,6 +638,8 @@ private:
 		Ref<Texture2D> space_icon;
 
 		Ref<Font> font;
+		Ref<Font> font_bold;
+		Ref<Font> font_italic;
 		int font_size = 16;
 		Color font_color = Color(1, 1, 1);
 		Color font_readonly_color = Color(1, 1, 1);

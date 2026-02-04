@@ -32,6 +32,11 @@
 
 #include "editor/script/script_editor_plugin.h"
 
+#include "core/math/color.h"
+#include "core/string/string_name.h"
+#include "core/templates/hash_map.h"
+#include "core/templates/vector.h"
+
 class GDScriptSyntaxHighlighter : public EditorSyntaxHighlighter {
 	GDCLASS(GDScriptSyntaxHighlighter, EditorSyntaxHighlighter)
 
@@ -47,6 +52,7 @@ private:
 
 		Type type = TYPE_NONE;
 		Color color;
+		int font_style = 0;
 		String start_key;
 		String end_key;
 		bool line_only = false;
@@ -58,8 +64,11 @@ private:
 	HashMap<int, int> color_region_cache;
 
 	HashMap<StringName, Color> class_names;
+	HashMap<StringName, int> class_names_style;
 	HashMap<StringName, Color> reserved_keywords;
+	HashMap<StringName, int> reserved_keywords_style;
 	HashMap<StringName, Color> member_keywords;
+	HashMap<StringName, int> member_keywords_style;
 	HashSet<StringName> global_functions;
 
 	enum Type {
@@ -96,6 +105,22 @@ private:
 	Color string_name_color;
 	Color type_color;
 
+	int font_style = 0;
+	int symbol_font_style = 0;
+	int function_font_style = 0;
+	int global_function_font_style = 0;
+	int function_definition_font_style = 0;
+	int built_in_type_font_style = 0;
+	int number_font_style = 0;
+	int member_variable_font_style = 0;
+	int string_font_style = 0;
+	int node_path_font_style = 0;
+	int node_ref_font_style = 0;
+	int annotation_font_style = 0;
+	int string_name_font_style = 0;
+	int type_font_style = 0;
+	int text_font_style = 0;
+
 	enum CommentMarkerLevel {
 		COMMENT_MARKER_CRITICAL,
 		COMMENT_MARKER_WARNING,
@@ -105,7 +130,10 @@ private:
 	Color comment_marker_colors[COMMENT_MARKER_MAX];
 	HashMap<String, CommentMarkerLevel> comment_markers;
 
-	void add_color_region(ColorRegion::Type p_type, const String &p_start_key, const String &p_end_key, const Color &p_color, bool p_line_only = false, bool p_r_prefix = false);
+	int comment_font_style = 0;
+	int doc_comment_font_style = 0;
+
+	void add_color_region(ColorRegion::Type p_type, const String &p_start_key, const String &p_end_key, const Color &p_color, bool p_line_only = false, bool p_r_prefix = false, int p_font_style = 0);
 
 public:
 	virtual void _update_cache() override;

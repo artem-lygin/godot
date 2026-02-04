@@ -510,6 +510,8 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_GLOBAL_FILE, "interface/editor/main_font", "", "*.ttf,*.otf,*.woff,*.woff2,*.pfb,*.pfm")
 	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_GLOBAL_FILE, "interface/editor/main_font_bold", "", "*.ttf,*.otf,*.woff,*.woff2,*.pfb,*.pfm")
 	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_GLOBAL_FILE, "interface/editor/code_font", "", "*.ttf,*.otf,*.woff,*.woff2,*.pfb,*.pfm")
+	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_GLOBAL_FILE, "interface/editor/code_font_bold", "", "*.ttf,*.otf,*.woff,*.woff2,*.pfb,*.pfm")
+	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_GLOBAL_FILE, "interface/editor/code_font_italic", "", "*.ttf,*.otf,*.woff,*.woff2,*.pfb,*.pfm")
 	EDITOR_SETTING(Variant::FLOAT, PROPERTY_HINT_RANGE, "interface/editor/dragging_hover_wait_seconds", 0.5, "0.01,10,0.01,or_greater,suffix:s");
 	_initial_set("interface/editor/separate_distraction_mode", false, true);
 	_initial_set("interface/editor/automatically_open_screenshots", true, true);
@@ -746,6 +748,29 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 		} else {
 			EDITOR_SETTING(Variant::COLOR, PROPERTY_HINT_NONE, text_color.key, text_color.value, "")
 		}
+	}
+
+	const LocalVector<StringName> text_font_style_settings = {
+		"text_editor/theme/highlighting/symbol_font_style",
+		"text_editor/theme/highlighting/keyword_font_style",
+		"text_editor/theme/highlighting/control_flow_keyword_font_style",
+		"text_editor/theme/highlighting/base_type_font_style",
+		"text_editor/theme/highlighting/engine_type_font_style",
+		"text_editor/theme/highlighting/user_type_font_style",
+		"text_editor/theme/highlighting/comment_font_style",
+		"text_editor/theme/highlighting/doc_comment_font_style",
+		"text_editor/theme/highlighting/string_font_style",
+		"text_editor/theme/highlighting/function_font_style",
+		"text_editor/theme/highlighting/member_variable_font_style",
+		"text_editor/theme/highlighting/number_font_style",
+		"text_editor/theme/highlighting/gdscript/node_path_font_style",
+		"text_editor/theme/highlighting/gdscript/node_reference_font_style",
+		"text_editor/theme/highlighting/gdscript/annotation_font_style",
+		"text_editor/theme/highlighting/gdscript/string_name_font_style",
+		"text_editor/theme/highlighting/text_font_style",
+	};
+	for (const StringName &setting : text_font_style_settings) {
+		EDITOR_SETTING_BASIC(Variant::INT, PROPERTY_HINT_ENUM, setting, 0, "Normal,Bold,Italic");
 	}
 
 	// The list is based on <https://github.com/KDE/syntax-highlighting/blob/master/data/syntax/alert.xml>.
@@ -1225,6 +1250,20 @@ void EditorSettings::_remove_deprecated_settings() {
 	erase("run/output/always_open_output_on_play");
 	erase("run/output/always_close_output_on_stop");
 	erase("text_editor/theme/line_spacing"); // See GH-106137.
+
+	// Legacy syntax highlighting settings.
+	erase("text_editor/theme/highlighting/symbol_italic");
+	erase("text_editor/theme/highlighting/keyword_italic");
+	erase("text_editor/theme/highlighting/control_flow_keyword_italic");
+	erase("text_editor/theme/highlighting/base_type_italic");
+	erase("text_editor/theme/highlighting/engine_type_italic");
+	erase("text_editor/theme/highlighting/user_type_italic");
+	erase("text_editor/theme/highlighting/comment_italic");
+	erase("text_editor/theme/highlighting/doc_comment_italic");
+	erase("text_editor/theme/highlighting/string_italic");
+	erase("text_editor/theme/highlighting/function_italic");
+	erase("text_editor/theme/highlighting/member_variable_italic");
+	erase("text_editor/theme/highlighting/number_italic");
 }
 #endif
 

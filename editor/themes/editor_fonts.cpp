@@ -239,6 +239,8 @@ void editor_register_fonts(const Ref<Theme> &p_theme) {
 	String custom_font_path = EDITOR_GET("interface/editor/main_font");
 	String custom_font_path_bold = EDITOR_GET("interface/editor/main_font_bold");
 	String custom_font_path_source = EDITOR_GET("interface/editor/code_font");
+	String custom_font_path_source_bold = EDITOR_GET("interface/editor/code_font_bold");
+	String custom_font_path_source_italic = EDITOR_GET("interface/editor/code_font_italic");
 
 	Ref<FontVariation> default_fc;
 	default_fc.instantiate();
@@ -401,6 +403,56 @@ void editor_register_fonts(const Ref<Theme> &p_theme) {
 		} break;
 	}
 
+	Ref<FontVariation> mono_bold_fc;
+	mono_bold_fc.instantiate();
+	if (custom_font_path_source_bold.length() > 0 && dir->file_exists(custom_font_path_source_bold)) {
+		Ref<FontFile> custom_font = load_external_font(custom_font_path_source_bold, font_mono_hinting, font_antialiasing, true, font_subpixel_positioning, font_disable_embedded_bitmaps);
+		{
+			TypedArray<Font> fallback_custom = { default_font_mono };
+			custom_font->set_fallbacks(fallback_custom);
+		}
+		mono_bold_fc->set_base_font(custom_font);
+	} else if (custom_font_path_source.length() > 0 && dir->file_exists(custom_font_path_source)) {
+		Ref<FontFile> custom_font = load_external_font(custom_font_path_source, font_mono_hinting, font_antialiasing, true, font_subpixel_positioning, font_disable_embedded_bitmaps);
+		{
+			TypedArray<Font> fallback_custom = { default_font_mono };
+			custom_font->set_fallbacks(fallback_custom);
+		}
+		mono_bold_fc->set_base_font(custom_font);
+		mono_bold_fc->set_variation_embolden(1.0);
+	} else {
+		mono_bold_fc->set_base_font(default_font_mono);
+		mono_bold_fc->set_variation_embolden(1.0);
+	}
+	mono_bold_fc->set_spacing(TextServer::SPACING_TOP, -EDSCALE);
+	mono_bold_fc->set_spacing(TextServer::SPACING_BOTTOM, -EDSCALE);
+	mono_bold_fc->set_opentype_features(mono_fc->get_opentype_features());
+
+	Ref<FontVariation> mono_italic_fc;
+	mono_italic_fc.instantiate();
+	if (custom_font_path_source_italic.length() > 0 && dir->file_exists(custom_font_path_source_italic)) {
+		Ref<FontFile> custom_font = load_external_font(custom_font_path_source_italic, font_mono_hinting, font_antialiasing, true, font_subpixel_positioning, font_disable_embedded_bitmaps);
+		{
+			TypedArray<Font> fallback_custom = { default_font_mono };
+			custom_font->set_fallbacks(fallback_custom);
+		}
+		mono_italic_fc->set_base_font(custom_font);
+	} else if (custom_font_path_source.length() > 0 && dir->file_exists(custom_font_path_source)) {
+		Ref<FontFile> custom_font = load_external_font(custom_font_path_source, font_mono_hinting, font_antialiasing, true, font_subpixel_positioning, font_disable_embedded_bitmaps);
+		{
+			TypedArray<Font> fallback_custom = { default_font_mono };
+			custom_font->set_fallbacks(fallback_custom);
+		}
+		mono_italic_fc->set_base_font(custom_font);
+		mono_italic_fc->set_variation_transform(Transform2D(1.0, 0.2, 0.0, 1.0, 0.0, 0.0));
+	} else {
+		mono_italic_fc->set_base_font(default_font_mono);
+		mono_italic_fc->set_variation_transform(Transform2D(1.0, 0.2, 0.0, 1.0, 0.0, 0.0));
+	}
+	mono_italic_fc->set_spacing(TextServer::SPACING_TOP, -EDSCALE);
+	mono_italic_fc->set_spacing(TextServer::SPACING_BOTTOM, -EDSCALE);
+	mono_italic_fc->set_opentype_features(mono_fc->get_opentype_features());
+
 	{
 		// Disable contextual alternates (coding ligatures).
 		Dictionary ftrs;
@@ -503,6 +555,8 @@ void editor_register_fonts(const Ref<Theme> &p_theme) {
 	// Code font
 	p_theme->set_font_size("source_size", EditorStringName(EditorFonts), int(EDITOR_GET("interface/editor/code_font_size")) * EDSCALE);
 	p_theme->set_font("source", EditorStringName(EditorFonts), mono_fc);
+	p_theme->set_font("source_bold", EditorStringName(EditorFonts), mono_bold_fc);
+	p_theme->set_font("source_italic", EditorStringName(EditorFonts), mono_italic_fc);
 
 	p_theme->set_font_size("expression_size", EditorStringName(EditorFonts), (int(EDITOR_GET("interface/editor/code_font_size")) - 1) * EDSCALE);
 	p_theme->set_font("expression", EditorStringName(EditorFonts), mono_other_fc);
