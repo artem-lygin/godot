@@ -1,76 +1,59 @@
-# Godot Engine
+# Demo of advanced syntax highlighting
 
-<p align="center">
-  <a href="https://godotengine.org">
-    <img src="logo_outlined.svg" width="400" alt="Godot Engine logo">
-  </a>
-</p>
+**This a fork of [Godot Engine](https://godotengine.org).** This fork is used to demonstrate advanced syntax highlighting for GDScript in Godot Engine, to support enhanced syntax highlighting, specifically allowing different font styles (Bold, Italic) for various syntax elements in the script editor. This code does not ment to be used in real project.
 
-## 2D and 3D cross-platform game engine
+## Engine Changes Documentation
+This document outlines the modifications made to the Godot Engine core by [Gemini 3 Pro](https://gemini.google.com).
 
-**[Godot Engine](https://godotengine.org) is a feature-packed, cross-platform
-game engine to create 2D and 3D games from a unified interface.** It provides a
-comprehensive set of [common tools](https://godotengine.org/features), so that
-users can focus on making games without having to reinvent the wheel. Games can
-be exported with one click to a number of platforms, including the major desktop
-platforms (Linux, macOS, Windows), mobile platforms (Android, iOS), as well as
-Web-based platforms and [consoles](https://godotengine.org/consoles).
+### 1. Core Engine Modifications
+#### `scene/resources/syntax_highlighter.h` & `scene/resources/syntax_highlighter.cpp`
+The `CodeHighlighter` class has been extended to support font styling alongside color highlighting for keywords, member keywords, and color regions.
 
-## Free, open source and community-driven
+##### New Member Variables:
 
-Godot is completely free and open source under the very permissive [MIT license](https://godotengine.org/license).
-No strings attached, no royalties, nothing. The users' games are theirs, down
-to the last line of engine code. Godot's development is fully independent and
-community-driven, empowering users to help shape their engine to match their
-expectations. It is supported by the [Godot Foundation](https://godot.foundation/)
-not-for-profit.
+- `keyword_styles`: A Dictionary mapping keywords to their font style (int).
+- `member_keyword_styles`: A Dictionary mapping member keywords to their font style (int).
+- `ColorRegion` struct now includes an `int font_style` member.
 
-Before being open sourced in [February 2014](https://github.com/godotengine/godot/commit/0b806ee0fc9097fa7bda7ac0109191c9c5e0a1ac),
-Godot had been developed by [Juan Linietsky](https://github.com/reduz) and
-[Ariel Manzur](https://github.com/punto-) for several years as an in-house
-engine, used to publish several work-for-hire titles.
+##### New Methods:
 
-![Screenshot of a 3D scene in the Godot Engine editor](https://raw.githubusercontent.com/godotengine/godot-design/master/screenshots/editor_tps_demo_1920x1080.jpg)
+- `add_keyword_style(keyword, font_style)`: Assigns a specific font style to a keyword.
+- `remove_keyword_style(keyword)`: Removes the font style for a keyword.
+- `has_keyword_style(keyword)`: Checks if a keyword has a font style assigned.
+- `get_keyword_style(keyword)`: Retrieves the font style for a keyword.
+  - `set_keyword_styles(styles)`: Batch sets keyword styles.
+- `clear_keyword_styles()`: Clears all keyword styles.
+- Equivalent methods for `member_keyword_styles` (e.g., `add_member_keyword_style`, `get_member_keyword_style`).
+- `add_color_region(...)`: Now accepts an optional `p_font_style` argument (defaulting to 0) to define the font style for the region.
 
-## Getting the engine
+##### Logic Updates:
 
-### Binary downloads
+- `_get_line_syntax_highlighting`: Updated to return a Dictionary that includes font_style information in the column-indexed data. The return format for each column entry now includes the color and the font style.
 
-Official binaries for the Godot editor and the export templates can be found
-[on the Godot website](https://godotengine.org/download).
+#### `scene/gui/text_edit.h` & `scene/gui/text_edit.cpp`
+The `TextEdit` control has been updated to render text using the specific font styles provided by the syntax highlighter.
 
-### Compiling from source
+##### Rendering Logic:
+- The `TextEdit` now queries the new `font_style` data from the syntax highlighting result.
+- When drawing text, it checks the returned `font_style` (Bold, Italic, Bold-Italic) and selects the appropriate font variation (`font_bold`, `font_italic`, etc.) from the theme to render the text segment.
 
-[See the official docs](https://docs.godotengine.org/en/latest/engine_details/development/compiling)
-for compilation instructions for every supported platform.
+##### API:
+- Exposed rendering capability for mixed font styles within the same line.
 
-## Community and contributing
+### 2. GDScript Module Modifications
+#### `modules/gdscript/editor/gdscript_highlighter.cpp` & `modules/gdscript/editor/gdscript_highlighter.h`
+The GDScript highlighter has been specifically updated to leverage the new core capabilities, primarily to fix and enhance NodePath highlighting.
 
-Godot is not only an engine but an ever-growing community of users and engine
-developers. The main community channels are listed [on the homepage](https://godotengine.org/community).
+##### NodePath Highlighting:
+- Logic was added (or modified) to identifying NodePath literals (starting with `^` and potentially quoted).
+- Explicitly assigns the "NodePath" font style (likely bold or a specific variation) to the entire NodePath literal, including the caret `^` and the path string. This resolves the issue where the string part was falling back to the generic string style.
+- Ensures that NodePaths are visually distinct from regular strings.
 
-The best way to get in touch with the core engine developers is to join the
-[Godot Contributors Chat](https://chat.godotengine.org).
+### 3. Editor Settings & Theme
+#### `editor/settings/editor_settings.cpp` & `editor/themes/editor_theme_manager.cpp`
+##### Font Style Registration:
+- Updates were made to ensure that the Bold and Italic font variations are correctly registered and accessible to the `TextEdit` via the editor theme.
+- This guarantees that when the highlighter requests a "Bold" style, the editor actually renders it using the bold font variant.
 
-To get started contributing to the project, see the [contributing guide](CONTRIBUTING.md).
-This document also includes guidelines for reporting bugs.
-
-## Documentation and demos
-
-The official documentation is hosted on [Read the Docs](https://docs.godotengine.org).
-It is maintained by the Godot community in its own [GitHub repository](https://github.com/godotengine/godot-docs).
-
-The [class reference](https://docs.godotengine.org/en/latest/classes/)
-is also accessible from the Godot editor.
-
-We also maintain official demos in their own [GitHub repository](https://github.com/godotengine/godot-demo-projects)
-as well as a list of [awesome Godot community resources](https://github.com/godotengine/awesome-godot).
-
-There are also a number of other
-[learning resources](https://docs.godotengine.org/en/latest/community/tutorials.html)
-provided by the community, such as text and video tutorials, demos, etc.
-Consult the [community channels](https://godotengine.org/community)
-for more information.
-
-[![Code Triagers Badge](https://www.codetriage.com/godotengine/godot/badges/users.svg)](https://www.codetriage.com/godotengine/godot)
-[![Translate on Weblate](https://hosted.weblate.org/widgets/godot-engine/-/godot/svg-badge.svg)](https://hosted.weblate.org/engage/godot-engine/?utm_source=widget)
+## Summary of Impact
+These changes allow for richer syntax highlighting in the Godot script editor. As a direct result, NodePaths in GDScript are now consistently styled (e.g., in bold) across their entire length, improving code readability and visual consistency. The changes in `CodeHighlighter` and `TextEdit` are generic, meaning other languages or plugins can also leverage this new font styling capability.
