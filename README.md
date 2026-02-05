@@ -1,6 +1,8 @@
 # Demo of advanced syntax highlighting
 
-**This a fork of [Godot Engine](https://godotengine.org).** This fork is used to demonstrate advanced syntax highlighting for GDScript in Godot Engine, to support enhanced syntax highlighting, specifically allowing different font styles (Bold, Italic) for various syntax elements in the script editor. This code does not ment to be used in real project.
+**This a fork of [Godot Engine](https://godotengine.org).** This fork is used to demonstrate syntax highlighting feature for GDScript in Godot Engine, allowing different font styles (Bold, Italic) for various syntax elements in the script editor. This code does not ment to be used in real project.
+
+[![Video demonstration](https://img.youtube.com/vi/pkU5qcE-Os8/maxresdefault.jpg)](https://www.youtube.com/watch?v=pkU5qcE-Os8)
 
 ## Engine Changes Documentation
 This document outlines the modifications made to the Godot Engine core by [Gemini 3 Pro](https://gemini.google.com).
