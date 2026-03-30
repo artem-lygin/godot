@@ -115,11 +115,11 @@ Ref<FontVariation> make_bold_font(const Ref<Font> &p_font, double p_embolden, Ty
 void editor_register_fonts(const Ref<Theme> &p_theme) {
 	Ref<DirAccess> dir = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 
-	TextServer::FontAntialiasing font_antialiasing = (TextServer::FontAntialiasing)(int)EDITOR_GET("interface/editor/font_antialiasing");
-	int font_hinting_setting = (int)EDITOR_GET("interface/editor/font_hinting");
-	TextServer::SubpixelPositioning font_subpixel_positioning = (TextServer::SubpixelPositioning)(int)EDITOR_GET("interface/editor/font_subpixel_positioning");
-	bool font_disable_embedded_bitmaps = (bool)EDITOR_GET("interface/editor/font_disable_embedded_bitmaps");
-	bool font_allow_msdf = (bool)EDITOR_GET("interface/editor/font_allow_msdf");
+	TextServer::FontAntialiasing font_antialiasing = (TextServer::FontAntialiasing)(int)EDITOR_GET("interface/editor/fonts/font_antialiasing");
+	int font_hinting_setting = (int)EDITOR_GET("interface/editor/fonts/font_hinting");
+	TextServer::SubpixelPositioning font_subpixel_positioning = (TextServer::SubpixelPositioning)(int)EDITOR_GET("interface/editor/fonts/font_subpixel_positioning");
+	bool font_disable_embedded_bitmaps = (bool)EDITOR_GET("interface/editor/fonts/font_disable_embedded_bitmaps");
+	bool font_allow_msdf = (bool)EDITOR_GET("interface/editor/fonts/font_allow_msdf");
 
 	TextServer::Hinting font_hinting;
 	TextServer::Hinting font_mono_hinting;
@@ -152,7 +152,7 @@ void editor_register_fonts(const Ref<Theme> &p_theme) {
 	}
 
 	// Load built-in fonts.
-	const int default_font_size = int(EDITOR_GET("interface/editor/main_font_size")) * EDSCALE;
+	const int default_font_size = int(EDITOR_GET("interface/editor/fonts/main_font_size")) * EDSCALE;
 	const float embolden_strength = 0.6;
 
 	Ref<Font> default_font = load_internal_font(_font_Inter_Regular, _font_Inter_Regular_size, font_hinting, font_antialiasing, true, font_subpixel_positioning, font_disable_embedded_bitmaps, false);
@@ -266,11 +266,11 @@ void editor_register_fonts(const Ref<Theme> &p_theme) {
 	default_font_mono->set_fallbacks(fallbacks);
 
 	// Init base font configs and load custom fonts.
-	String custom_font_path = EDITOR_GET("interface/editor/main_font");
-	String custom_font_path_bold = EDITOR_GET("interface/editor/main_font_bold");
-	String custom_font_path_source = EDITOR_GET("interface/editor/code_font");
-	String custom_font_path_source_bold = EDITOR_GET("interface/editor/code_font_bold");
-	String custom_font_path_source_italic = EDITOR_GET("interface/editor/code_font_italic");
+	String custom_font_path = EDITOR_GET("interface/editor/fonts/main_font");
+	String custom_font_path_bold = EDITOR_GET("interface/editor/fonts/main_font_bold");
+	String custom_font_path_source = EDITOR_GET("interface/editor/fonts/code_font");
+	String custom_font_path_source_bold = EDITOR_GET("interface/editor/fonts/code_font_bold");
+	String custom_font_path_source_italic = EDITOR_GET("interface/editor/fonts/code_font_italic");
 
 	Ref<FontVariation> default_fc;
 	default_fc.instantiate();
@@ -282,7 +282,7 @@ void editor_register_fonts(const Ref<Theme> &p_theme) {
 		}
 		default_fc->set_base_font(custom_font);
 	} else {
-		EditorSettings::get_singleton()->set_manually("interface/editor/main_font", "");
+		EditorSettings::get_singleton()->set_manually("interface/editor/fonts/main_font", "");
 		default_fc->set_opentype_features(default_features);
 		default_fc->set_base_font(default_font);
 	}
@@ -302,7 +302,7 @@ void editor_register_fonts(const Ref<Theme> &p_theme) {
 		}
 		default_fc_msdf->set_base_font(custom_font);
 	} else {
-		EditorSettings::get_singleton()->set_manually("interface/editor/main_font", "");
+		EditorSettings::get_singleton()->set_manually("interface/editor/fonts/main_font", "");
 		default_fc_msdf->set_opentype_features(default_features);
 		default_fc_msdf->set_base_font(default_font_msdf);
 	}
@@ -330,7 +330,7 @@ void editor_register_fonts(const Ref<Theme> &p_theme) {
 			bold_fc->set_variation_embolden(embolden_strength);
 		}
 	} else {
-		EditorSettings::get_singleton()->set_manually("interface/editor/main_font_bold", "");
+		EditorSettings::get_singleton()->set_manually("interface/editor/fonts/main_font_bold", "");
 		bold_fc->set_opentype_features(default_features);
 		bold_fc->set_base_font(default_font_bold);
 	}
@@ -360,7 +360,7 @@ void editor_register_fonts(const Ref<Theme> &p_theme) {
 			bold_fc_msdf->set_variation_embolden(embolden_strength);
 		}
 	} else {
-		EditorSettings::get_singleton()->set_manually("interface/editor/main_font_bold", "");
+		EditorSettings::get_singleton()->set_manually("interface/editor/fonts/main_font_bold", "");
 		bold_fc_msdf->set_opentype_features(default_features);
 		bold_fc_msdf->set_base_font(default_font_bold_msdf);
 	}
@@ -368,8 +368,8 @@ void editor_register_fonts(const Ref<Theme> &p_theme) {
 	bold_fc_msdf->set_spacing(TextServer::SPACING_BOTTOM, -EDSCALE);
 	bold_fc_msdf->set_variation_opentype(bold_fc_opentype);
 
-	if (!String(EDITOR_GET("interface/editor/main_font_custom_opentype_features")).is_empty()) {
-		Vector<String> subtag = String(EDITOR_GET("interface/editor/main_font_custom_opentype_features")).split(",");
+	if (!String(EDITOR_GET("interface/editor/fonts/main_font_custom_opentype_features")).is_empty()) {
+		Vector<String> subtag = String(EDITOR_GET("interface/editor/fonts/main_font_custom_opentype_features")).split(",");
 		if (!subtag.is_empty()) {
 			Dictionary ftrs;
 			for (int i = 0; i < subtag.size(); i++) {
@@ -397,7 +397,7 @@ void editor_register_fonts(const Ref<Theme> &p_theme) {
 		}
 		mono_fc->set_base_font(custom_font);
 	} else {
-		EditorSettings::get_singleton()->set_manually("interface/editor/code_font", "");
+		EditorSettings::get_singleton()->set_manually("interface/editor/fonts/code_font", "");
 		mono_fc->set_base_font(default_font_mono);
 	}
 	mono_fc->set_spacing(TextServer::SPACING_TOP, -EDSCALE);
@@ -406,7 +406,7 @@ void editor_register_fonts(const Ref<Theme> &p_theme) {
 	Ref<FontVariation> mono_other_fc = mono_fc->duplicate();
 
 	// Enable contextual alternates (coding ligatures) and custom features for the source editor font.
-	int ot_mode = EDITOR_GET("interface/editor/code_font_contextual_ligatures");
+	int ot_mode = EDITOR_GET("interface/editor/fonts/code_font_contextual_ligatures");
 	switch (ot_mode) {
 		case 1: { // Disable ligatures.
 			Dictionary ftrs;
@@ -414,7 +414,7 @@ void editor_register_fonts(const Ref<Theme> &p_theme) {
 			mono_fc->set_opentype_features(ftrs);
 		} break;
 		case 2: { // Custom.
-			Vector<String> subtag = String(EDITOR_GET("interface/editor/code_font_custom_opentype_features")).split(",");
+			Vector<String> subtag = String(EDITOR_GET("interface/editor/fonts/code_font_custom_opentype_features")).split(",");
 			Dictionary ftrs;
 			for (int i = 0; i < subtag.size(); i++) {
 				Vector<String> subtag_a = subtag[i].split("=");
@@ -431,6 +431,20 @@ void editor_register_fonts(const Ref<Theme> &p_theme) {
 			ftrs[TS->name_to_tag("calt")] = 1;
 			mono_fc->set_opentype_features(ftrs);
 		} break;
+	}
+
+	Vector<String> variation_tags = String(EDITOR_GET("interface/editor/fonts/code_font_custom_variations")).split(",");
+	Dictionary variations_mono;
+	for (int i = 0; i < variation_tags.size(); i++) {
+		Vector<String> subtag_a = variation_tags[i].split("=");
+		if (subtag_a.size() == 2) {
+			variations_mono[TS->name_to_tag(subtag_a[0])] = subtag_a[1].to_float();
+		} else if (subtag_a.size() == 1) {
+			variations_mono[TS->name_to_tag(subtag_a[0])] = 1;
+		}
+	}
+	if (!variations_mono.is_empty()) {
+		mono_fc->set_variation_opentype(variations_mono);
 	}
 
 	Ref<FontVariation> mono_bold_fc;
@@ -583,12 +597,12 @@ void editor_register_fonts(const Ref<Theme> &p_theme) {
 	p_theme->set_font("rotation_control", EditorStringName(EditorFonts), default_fc);
 
 	// Code font
-	p_theme->set_font_size("source_size", EditorStringName(EditorFonts), int(EDITOR_GET("interface/editor/code_font_size")) * EDSCALE);
+	p_theme->set_font_size("source_size", EditorStringName(EditorFonts), int(EDITOR_GET("interface/editor/fonts/code_font_size")) * EDSCALE);
 	p_theme->set_font("source", EditorStringName(EditorFonts), mono_fc);
 	p_theme->set_font("source_bold", EditorStringName(EditorFonts), mono_bold_fc);
 	p_theme->set_font("source_italic", EditorStringName(EditorFonts), mono_italic_fc);
 
-	p_theme->set_font_size("expression_size", EditorStringName(EditorFonts), (int(EDITOR_GET("interface/editor/code_font_size")) - 1) * EDSCALE);
+	p_theme->set_font_size("expression_size", EditorStringName(EditorFonts), (int(EDITOR_GET("interface/editor/fonts/code_font_size")) - 1) * EDSCALE);
 	p_theme->set_font("expression", EditorStringName(EditorFonts), mono_other_fc);
 
 	p_theme->set_font_size("output_source_size", EditorStringName(EditorFonts), int(EDITOR_GET("run/output/font_size")) * EDSCALE);

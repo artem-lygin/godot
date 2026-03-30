@@ -36,24 +36,24 @@
 #include "core/config/project_settings.h"
 #include "core/io/dir_access.h"
 #include "core/io/file_access.h"
-#include "core/io/image_loader.h"
 #include "core/io/json.h"
 #include "core/io/marshalls.h"
 #include "core/math/random_pcg.h"
+#include "core/os/os.h"
+#include "core/os/shared_object.h"
 #include "core/string/translation_server.h"
 #include "core/version.h"
-#include "editor/editor_log.h"
 #include "editor/editor_node.h"
-#include "editor/editor_string_names.h"
+#include "editor/export/editor_export.h"
+#include "editor/export/editor_export_plugin.h"
 #include "editor/export/export_template_manager.h"
 #include "editor/file_system/editor_paths.h"
 #include "editor/import/resource_importer_texture_settings.h"
 #include "editor/settings/editor_settings.h"
 #include "editor/themes/editor_scale.h"
-#include "main/splash.gen.h"
 #include "scene/resources/image_texture.h"
 
-#include "modules/modules_enabled.gen.h" // For mono.
+#include "modules/modules_enabled.gen.h" // IWYU pragma: keep. For mono.
 #include "modules/svg/image_loader_svg.h"
 
 #ifdef MODULE_MONO_ENABLED
@@ -61,9 +61,14 @@
 #endif
 
 #ifdef ANDROID_ENABLED
-#include "../java_godot_wrapper.h"
 #include "../os_android.h"
 #include "android_editor_gradle_runner.h"
+#endif
+
+#ifndef ANDROID_ENABLED
+#include "core/object/callable_mp.h"
+#include "editor/editor_log.h"
+#include "editor/editor_string_names.h"
 #endif
 
 static const char *ANDROID_PERMS[] = {
@@ -288,10 +293,17 @@ static const char *APK_ASSETS_DIRECTORY = "src/main/assets";
 static const char *AAB_ASSETS_DIRECTORY = "assetPackInstallTime/src/main/assets";
 
 static const int DEFAULT_MIN_SDK_VERSION = 24; // Should match the value in 'platform/android/java/app/config.gradle#minSdk'
+static const int VULKAN_MIN_SDK_VERSION = 29; // Minimum recommended sdk version for Vulkan 1.1 support. See https://developer.android.com/games/develop/vulkan/native-engine-support#recommendations
 static const int DEFAULT_TARGET_SDK_VERSION = 36; // Should match the value in 'platform/android/java/app/config.gradle#targetSdk'
 
 #ifndef ANDROID_ENABLED
 void EditorExportPlatformAndroid::_check_for_changes_poll_thread(void *ud) {
+	if (!EditorSettings::get_singleton()) {
+		// Some methods called here query editor settings, so we need it to be ready first.
+		// If it's not ready yet, just wait for the next iteration.
+		return;
+	}
+
 	EditorExportPlatformAndroid *ea = static_cast<EditorExportPlatformAndroid *>(ud);
 
 	while (!ea->quit_request.is_set()) {
@@ -463,10 +475,26 @@ void EditorExportPlatformAndroid::_update_preset_status() {
 	bool has_runnable = EditorExport::get_singleton()->get_runnable_preset_for_platform(this).is_valid();
 	if (has_runnable) {
 		has_runnable_preset.set();
+		_start_check_for_changes_poll_thread();
 	} else {
 		has_runnable_preset.clear();
+		_stop_check_for_changes_poll_thread();
 	}
 	devices_changed.set();
+}
+
+void EditorExportPlatformAndroid::_start_check_for_changes_poll_thread() {
+	quit_request.clear();
+	if (!check_for_changes_thread.is_started()) {
+		check_for_changes_thread.start(_check_for_changes_poll_thread, this);
+	}
+}
+
+void EditorExportPlatformAndroid::_stop_check_for_changes_poll_thread() {
+	quit_request.set();
+	if (check_for_changes_thread.is_started()) {
+		check_for_changes_thread.wait_to_finish();
+	}
 }
 #endif
 
@@ -971,7 +999,7 @@ void EditorExportPlatformAndroid::_get_manifest_info(const Ref<EditorExportPrese
 	}
 
 	if (_uses_vulkan(p_preset)) {
-		// Require vulkan hardware level 1 support
+		// Optionally request vulkan hardware level 1 support.
 		FeatureInfo vulkan_level = {
 			"android.hardware.vulkan.level", // name
 			false, // required
@@ -979,11 +1007,12 @@ void EditorExportPlatformAndroid::_get_manifest_info(const Ref<EditorExportPrese
 		};
 		r_features.append(vulkan_level);
 
-		// Require vulkan version 1.0
+		// Require vulkan version 1.1 if fallback_to_opengl3 is disabled.
+		bool vulkan_1_1_required = !GLOBAL_GET("rendering/rendering_device/fallback_to_opengl3");
 		FeatureInfo vulkan_version = {
 			"android.hardware.vulkan.version", // name
-			true, // required
-			"0x400003" // version - Encoded value for api version 1.0
+			vulkan_1_1_required, // required
+			"0x401000" // version - Encoded value for api version 1.1
 		};
 		r_features.append(vulkan_version);
 	}
@@ -1194,7 +1223,7 @@ void EditorExportPlatformAndroid::_fix_manifest(const Ref<EditorExportPreset> &p
 	String package_name = p_preset->get("package/unique_name");
 
 	const int screen_orientation =
-			_get_android_orientation_value(DisplayServer::ScreenOrientation(int(get_project_setting(p_preset, "display/window/handheld/orientation"))));
+			_get_android_orientation_value(DisplayServerEnums::ScreenOrientation(int(get_project_setting(p_preset, "display/window/handheld/orientation"))));
 
 	bool screen_support_small = p_preset->get("screen/support_small");
 	bool screen_support_normal = p_preset->get("screen/support_normal");
@@ -2053,7 +2082,7 @@ String EditorExportPlatformAndroid::get_export_option_warning(const EditorExport
 			int target_sdk_int = DEFAULT_TARGET_SDK_VERSION;
 
 			String min_sdk_str = p_preset->get("gradle_build/min_sdk");
-			int min_sdk_int = DEFAULT_MIN_SDK_VERSION;
+			int min_sdk_int = VULKAN_MIN_SDK_VERSION;
 			if (min_sdk_str.is_valid_int()) {
 				min_sdk_int = min_sdk_str.to_int();
 			}
@@ -2114,7 +2143,7 @@ void EditorExportPlatformAndroid::get_export_options(List<ExportOption> *r_optio
 	r_options->push_back(ExportOption(PropertyInfo(Variant::INT, "gradle_build/export_format", PROPERTY_HINT_ENUM, "Export APK,Export AAB"), EXPORT_FORMAT_APK, false, true));
 	// Using String instead of int to default to an empty string (no override) with placeholder for instructions (see GH-62465).
 	// This implies doing validation that the string is a proper int.
-	r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "gradle_build/min_sdk", PROPERTY_HINT_PLACEHOLDER_TEXT, vformat("%d (default)", DEFAULT_MIN_SDK_VERSION)), "", false, true));
+	r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "gradle_build/min_sdk", PROPERTY_HINT_PLACEHOLDER_TEXT, vformat("%d (default)", VULKAN_MIN_SDK_VERSION)), "", false, true));
 	r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "gradle_build/target_sdk", PROPERTY_HINT_PLACEHOLDER_TEXT, vformat("%d (default)", DEFAULT_TARGET_SDK_VERSION)), "", false, true));
 
 	r_options->push_back(ExportOption(PropertyInfo(Variant::DICTIONARY, "gradle_build/custom_theme_attributes", PROPERTY_HINT_DICTIONARY_TYPE, "String;String"), Dictionary()));
@@ -2363,14 +2392,14 @@ Error EditorExportPlatformAndroid::run(const Ref<EditorExportPreset> &p_preset, 
 
 	String tmp_export_path = EditorPaths::get_singleton()->get_temp_dir().path_join("tmpexport." + uitos(OS::get_singleton()->get_unix_time()) + ".apk");
 
-#define CLEANUP_AND_RETURN(m_err)                                        \
-	{                                                                    \
-		DirAccess::remove_file_or_error(tmp_export_path);                \
-		if (FileAccess::exists(tmp_export_path + ".idsig")) {            \
+#define CLEANUP_AND_RETURN(m_err) \
+	{ \
+		DirAccess::remove_file_or_error(tmp_export_path); \
+		if (FileAccess::exists(tmp_export_path + ".idsig")) { \
 			DirAccess::remove_file_or_error(tmp_export_path + ".idsig"); \
-		}                                                                \
-		return m_err;                                                    \
-	}                                                                    \
+		} \
+		return m_err; \
+	} \
 	((void)0)
 
 	// Export to temporary APK before sending to device.
@@ -3102,6 +3131,20 @@ bool EditorExportPlatformAndroid::has_valid_project_configuration(const Ref<Edit
 		err += "\n";
 	}
 
+	String min_sdk_str = p_preset->get("gradle_build/min_sdk");
+	int min_sdk_int = VULKAN_MIN_SDK_VERSION;
+	if (!min_sdk_str.is_empty()) { // Empty means no override, nothing to do.
+		if (min_sdk_str.is_valid_int()) {
+			min_sdk_int = min_sdk_str.to_int();
+		}
+	}
+	bool fallback_to_opengl3 = GLOBAL_GET("rendering/rendering_device/fallback_to_opengl3");
+	if (_uses_vulkan(p_preset) && min_sdk_int < VULKAN_MIN_SDK_VERSION && !fallback_to_opengl3) {
+		// Warning only, so don't override `valid`.
+		err += vformat(TTR("\"Min SDK\" should be greater or equal to %d for the \"%s\" renderer."), VULKAN_MIN_SDK_VERSION, current_renderer);
+		err += "\n";
+	}
+
 	String package_name = p_preset->get("package/unique_name");
 	if (package_name.contains("$genname") && !is_project_name_valid(p_preset)) {
 		// Warning only, so don't override `valid`.
@@ -3586,6 +3629,30 @@ Error EditorExportPlatformAndroid::_generate_sparse_pck_metadata(const Ref<Edito
 	return OK;
 }
 
+#ifdef ANDROID_ENABLED
+// Copies the given keystore to temp file.
+// Returns the new path on success, or an empty String on failure.
+static String _copy_keystore_to_temp(const String &p_keystore_path, const String &p_build_path, const String &p_name) {
+	Error err;
+	PackedByteArray keystore_data = FileAccess::get_file_as_bytes(p_keystore_path, &err);
+	if (err != OK) {
+		return String();
+	}
+
+	String temp_dir = p_build_path + "/.android";
+	String temp_filename = temp_dir + "/" + p_name;
+
+	DirAccess::make_dir_recursive_absolute(temp_dir);
+	Ref<FileAccess> temp_file = FileAccess::open(temp_filename, FileAccess::WRITE);
+	if (!temp_file.is_valid()) {
+		return String();
+	}
+
+	temp_file->store_buffer(keystore_data);
+	return temp_filename;
+}
+#endif
+
 Error EditorExportPlatformAndroid::export_project_helper(const Ref<EditorExportPreset> &p_preset, bool p_debug, const String &p_path, int export_format, bool should_sign, BitField<EditorExportPlatform::DebugFlags> p_flags) {
 	ExportNotifier notifier(*this, p_preset, p_debug, p_path, p_flags);
 
@@ -3781,7 +3848,7 @@ Error EditorExportPlatformAndroid::export_project_helper(const Ref<EditorExportP
 		String version_name = p_preset->get_version("version/name");
 		String min_sdk_version = p_preset->get("gradle_build/min_sdk");
 		if (!min_sdk_version.is_valid_int()) {
-			min_sdk_version = itos(DEFAULT_MIN_SDK_VERSION);
+			min_sdk_version = itos(VULKAN_MIN_SDK_VERSION);
 		}
 		String target_sdk_version = p_preset->get("gradle_build/target_sdk");
 		if (!target_sdk_version.is_valid_int()) {
@@ -3894,22 +3961,13 @@ Error EditorExportPlatformAndroid::export_project_helper(const Ref<EditorExportP
 					return ERR_FILE_CANT_OPEN;
 				}
 #ifdef ANDROID_ENABLED
-				if (debug_keystore.begins_with("assets://")) {
-					// The Gradle build environment app can't access the Godot
-					// editor's assets, so we need to copy this to temp file.
-					Error err;
-					PackedByteArray keystore_data = FileAccess::get_file_as_bytes(debug_keystore, &err);
-					if (err == OK) {
-						String temp_dir = build_path + "/.android";
-						String temp_filename = temp_dir + "/debug.keystore";
-
-						DirAccess::make_dir_recursive_absolute(temp_dir);
-						Ref<FileAccess> temp_file = FileAccess::open(temp_filename, FileAccess::WRITE);
-						if (temp_file.is_valid()) {
-							temp_file->store_buffer(keystore_data);
-							debug_keystore = temp_filename;
-						}
-					}
+				// The GABE app only has access to the project directory.
+				// Since the keystore can be anywhere in the filesystem, so we need to copy this to temp file.
+				String new_debug_keystore = _copy_keystore_to_temp(debug_keystore, build_path, "debug.keystore");
+				if (new_debug_keystore.is_empty()) {
+					add_message(EXPORT_MESSAGE_ERROR, TTR("Code Signing"), TTR("Failed to copy debug keystore to temp directory."));
+				} else {
+					debug_keystore = new_debug_keystore;
 				}
 #endif
 
@@ -3928,6 +3986,16 @@ Error EditorExportPlatformAndroid::export_project_helper(const Ref<EditorExportP
 					add_message(EXPORT_MESSAGE_ERROR, TTR("Code Signing"), TTR("Could not find release keystore, unable to export."));
 					return ERR_FILE_CANT_OPEN;
 				}
+#ifdef ANDROID_ENABLED
+				// The GABE app only has access to the project directory.
+				// Since the keystore can be anywhere in the filesystem, so we need to copy this to temp file.
+				String new_release_keystore = _copy_keystore_to_temp(release_keystore, build_path, "release.keystore");
+				if (new_release_keystore.is_empty()) {
+					add_message(EXPORT_MESSAGE_ERROR, TTR("Code Signing"), TTR("Failed to copy release keystore to temp directory."));
+				} else {
+					release_keystore = new_release_keystore;
+				}
+#endif
 
 				cmdline.push_back("-Prelease_keystore_file=" + release_keystore); // argument to specify the release keystore file.
 				cmdline.push_back("-Prelease_keystore_alias=" + release_username); // argument to specify the release keystore alias.
@@ -4034,11 +4102,11 @@ Error EditorExportPlatformAndroid::export_project_helper(const Ref<EditorExportP
 
 	String tmp_unaligned_path = EditorPaths::get_singleton()->get_temp_dir().path_join("tmpexport-unaligned." + uitos(OS::get_singleton()->get_unix_time()) + ".apk");
 
-#define CLEANUP_AND_RETURN(m_err)                            \
-	{                                                        \
+#define CLEANUP_AND_RETURN(m_err) \
+	{ \
 		DirAccess::remove_file_or_error(tmp_unaligned_path); \
-		return m_err;                                        \
-	}                                                        \
+		return m_err; \
+	} \
 	((void)0)
 
 	zipFile unaligned_apk = zipOpen2(tmp_unaligned_path.utf8().get_data(), APPEND_STATUS_CREATE, nullptr, &io2);
@@ -4396,7 +4464,6 @@ void EditorExportPlatformAndroid::initialize() {
 		devices_changed.set();
 		_create_editor_debug_keystore_if_needed();
 		_update_preset_status();
-		check_for_changes_thread.start(_check_for_changes_poll_thread, this);
 		use_scrcpy = EditorSettings::get_singleton()->get_project_metadata("android", "use_scrcpy", false);
 #else // ANDROID_ENABLED
 		android_editor_gradle_runner = memnew(AndroidEditorGradleRunner);
@@ -4406,10 +4473,7 @@ void EditorExportPlatformAndroid::initialize() {
 
 EditorExportPlatformAndroid::~EditorExportPlatformAndroid() {
 #ifndef ANDROID_ENABLED
-	quit_request.set();
-	if (check_for_changes_thread.is_started()) {
-		check_for_changes_thread.wait_to_finish();
-	}
+	_stop_check_for_changes_poll_thread();
 #else
 	if (android_editor_gradle_runner) {
 		memdelete(android_editor_gradle_runner);

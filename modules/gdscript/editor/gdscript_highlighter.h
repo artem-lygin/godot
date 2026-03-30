@@ -30,7 +30,7 @@
 
 #pragma once
 
-#include "editor/script/script_editor_plugin.h"
+#include "editor/script/syntax_highlighters.h"
 
 #include "core/math/color.h"
 #include "core/string/string_name.h"

@@ -32,6 +32,9 @@
 
 #include "core/input/input.h"
 #include "core/io/marshalls.h"
+#include "core/io/resource_loader.h"
+#include "core/object/callable_mp.h"
+#include "core/object/class_db.h"
 #include "editor/docks/inspector_dock.h"
 #include "editor/editor_node.h"
 #include "editor/editor_string_names.h"
@@ -44,6 +47,7 @@
 #include "editor/themes/editor_scale.h"
 #include "scene/gui/button.h"
 #include "scene/gui/margin_container.h"
+#include "scene/main/scene_tree.h"
 
 bool EditorPropertyArrayObject::_set(const StringName &p_name, const Variant &p_value) {
 	String name = p_name;
@@ -774,6 +778,19 @@ Node *EditorPropertyArray::get_base_node() {
 
 void EditorPropertyArray::_notification(int p_what) {
 	switch (p_what) {
+		case NOTIFICATION_THEME_CHANGED: {
+			for (Slot &slot : slots) {
+				if (slot.edit_button) {
+					slot.edit_button->set_button_icon(get_editor_theme_icon(SNAME("Edit")));
+				}
+				if (slot.reorder_button) {
+					slot.reorder_button->set_button_icon(get_editor_theme_icon(SNAME("TripleBar")));
+				}
+				if (slot.remove_button) {
+					slot.remove_button->set_button_icon(get_editor_theme_icon(SNAME("Remove")));
+				}
+			}
+		} break;
 		case NOTIFICATION_DRAG_BEGIN: {
 			if (is_visible_in_tree()) {
 				if (_is_drop_valid(get_viewport()->gui_get_drag_data())) {
@@ -1158,7 +1175,7 @@ void EditorPropertyDictionary::_change_type_menu(int p_index) {
 }
 
 void EditorPropertyDictionary::setup(PropertyHint p_hint, const String &p_hint_string) {
-	PackedStringArray types = p_hint_string.split(";");
+	PackedStringArray types = p_hint_string.split(";", true, 1);
 	if (types.size() > 0 && !types[0].is_empty()) {
 		String key = types[0];
 		int hint_key_subtype_separator = key.find_char(':');
@@ -1500,6 +1517,15 @@ void EditorPropertyDictionary::_resource_selected(const String &p_path, Ref<Reso
 void EditorPropertyDictionary::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_THEME_CHANGED: {
+			for (Slot &slot : slots) {
+				if (slot.edit_button) {
+					slot.edit_button->set_button_icon(get_editor_theme_icon(SNAME("Edit")));
+				}
+				if (slot.remove_button) {
+					slot.remove_button->set_button_icon(get_editor_theme_icon(SNAME("Remove")));
+				}
+			}
+
 			if (button_add_item) {
 				add_panel->add_theme_style_override(SceneStringName(panel), get_theme_stylebox(SNAME("DictionaryAddItem")));
 			}

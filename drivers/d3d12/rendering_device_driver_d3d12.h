@@ -35,32 +35,10 @@
 #include "core/templates/paged_allocator.h"
 #include "core/templates/rb_map.h"
 #include "core/templates/self_list.h"
-#include "rendering_shader_container_d3d12.h"
+#include "drivers/d3d12/rendering_shader_container_d3d12.h"
 #include "servers/rendering/rendering_device_driver.h"
 
-#if !defined(_MSC_VER) && !defined(__REQUIRED_RPCNDR_H_VERSION__)
-// Match current version used by MinGW, MSVC and Direct3D 12 headers use 500.
-#define __REQUIRED_RPCNDR_H_VERSION__ 475
-#endif // !defined(_MSC_VER) && !defined(__REQUIRED_RPCNDR_H_VERSION__)
-
-GODOT_GCC_WARNING_PUSH
-GODOT_GCC_WARNING_IGNORE("-Wimplicit-fallthrough")
-GODOT_GCC_WARNING_IGNORE("-Wmissing-field-initializers")
-GODOT_GCC_WARNING_IGNORE("-Wnon-virtual-dtor")
-GODOT_GCC_WARNING_IGNORE("-Wshadow")
-GODOT_GCC_WARNING_IGNORE("-Wswitch")
-GODOT_CLANG_WARNING_PUSH
-GODOT_CLANG_WARNING_IGNORE("-Wimplicit-fallthrough")
-GODOT_CLANG_WARNING_IGNORE("-Wmissing-field-initializers")
-GODOT_CLANG_WARNING_IGNORE("-Wnon-virtual-dtor")
-GODOT_CLANG_WARNING_IGNORE("-Wstring-plus-int")
-GODOT_CLANG_WARNING_IGNORE("-Wswitch")
-
-#include <thirdparty/directx_headers/include/directx/d3dx12.h>
-
-GODOT_GCC_WARNING_POP
-GODOT_CLANG_WARNING_POP
-
+#include <drivers/d3d12/godot_d3dx12.h>
 #include <wrl/client.h>
 
 #ifdef DEV_ENABLED
@@ -93,6 +71,7 @@ class RenderingDeviceDriverD3D12 : public RenderingDeviceDriver {
 	};
 
 	static const D3D12Format RD_TO_D3D12_FORMAT[RDD::DATA_FORMAT_MAX];
+	static const DXGI_COLOR_SPACE_TYPE RD_TO_DXGI_COLOR_SPACE_TYPE[RDD::COLOR_SPACE_MAX];
 
 	struct DeviceLimits {
 		uint64_t max_srvs_per_shader_stage = 0;
@@ -554,10 +533,13 @@ private:
 		TightLocalVector<TextureInfo> render_targets_info;
 		TightLocalVector<FramebufferID> framebuffers;
 		RDD::DataFormat data_format = DATA_FORMAT_MAX;
+		RDD::ColorSpace color_space = COLOR_SPACE_MAX;
 	};
 
 	void _swap_chain_release(SwapChain *p_swap_chain);
 	void _swap_chain_release_buffers(SwapChain *p_swap_chain);
+	RenderPassID _swap_chain_create_render_pass(RDD::DataFormat p_format);
+	void _determine_swap_chain_format(SwapChain *p_swap_chain, DataFormat &r_format, ColorSpace &r_color_space);
 
 public:
 	virtual SwapChainID swap_chain_create(RenderingContextDriver::SurfaceID p_surface) override;
@@ -565,6 +547,7 @@ public:
 	virtual FramebufferID swap_chain_acquire_framebuffer(CommandQueueID p_cmd_queue, SwapChainID p_swap_chain, bool &r_resize_required) override;
 	virtual RenderPassID swap_chain_get_render_pass(SwapChainID p_swap_chain) override;
 	virtual DataFormat swap_chain_get_format(SwapChainID p_swap_chain) override;
+	virtual ColorSpace swap_chain_get_color_space(SwapChainID p_swap_chain) override;
 	virtual void swap_chain_free(SwapChainID p_swap_chain) override;
 
 	/*********************/

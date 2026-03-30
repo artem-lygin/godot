@@ -32,7 +32,7 @@
 
 #include "core/io/resource.h"
 #include "core/math/color.h"
-#include "core/object/gdvirtual.gen.inc"
+#include "core/object/gdvirtual.gen.h"
 #include "core/object/object_id.h"
 #include "core/templates/hash_map.h"
 #include "core/templates/rb_map.h"

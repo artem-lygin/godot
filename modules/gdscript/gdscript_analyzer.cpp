@@ -1875,7 +1875,9 @@ void GDScriptAnalyzer::resolve_function_signature(GDScriptParser::FunctionNode *
 		if (!p_is_lambda && get_function_signature(p_function, false, base_type, function_name, parent_return_type, parameters_types, default_par_count, method_flags, &native_base)) {
 			bool valid = p_function->is_static == method_flags.has_flag(METHOD_FLAG_STATIC);
 
-			if (p_function->return_type != nullptr) {
+			if (p_function->return_type == nullptr) {
+				p_function->set_datatype(parent_return_type);
+			} else {
 				// Check return type covariance.
 				GDScriptParser::DataType return_type = p_function->get_datatype();
 				if (return_type.is_variant()) {
@@ -2513,19 +2515,22 @@ void GDScriptAnalyzer::resolve_match_pattern(GDScriptParser::PatternNode *p_matc
 }
 
 void GDScriptAnalyzer::resolve_return(GDScriptParser::ReturnNode *p_return) {
+	const bool has_expected_type = parser->current_function != nullptr;
+	const GDScriptParser::DataType expected_type = has_expected_type ? parser->current_function->get_datatype() : GDScriptParser::DataType();
+
 	GDScriptParser::DataType result;
 
-	GDScriptParser::DataType expected_type;
-	bool has_expected_type = parser->current_function != nullptr;
-	if (has_expected_type) {
-		expected_type = parser->current_function->get_datatype();
-	}
-
-	if (p_return->return_value != nullptr) {
-		bool is_void_function = has_expected_type && expected_type.is_hard_type() && expected_type.kind == GDScriptParser::DataType::BUILTIN && expected_type.builtin_type == Variant::NIL;
-		bool is_call = p_return->return_value->type == GDScriptParser::Node::CALL;
+	if (p_return->return_value == nullptr) {
+		// Return type is `null` by default.
+		result.type_source = GDScriptParser::DataType::ANNOTATED_EXPLICIT;
+		result.kind = GDScriptParser::DataType::BUILTIN;
+		result.builtin_type = Variant::NIL;
+		result.is_constant = true;
+	} else {
+		const bool is_void_function = has_expected_type && expected_type.is_hard_type() && expected_type.kind == GDScriptParser::DataType::BUILTIN && expected_type.builtin_type == Variant::NIL;
+		const bool is_call = p_return->return_value->type == GDScriptParser::Node::CALL;
 		if (is_void_function && is_call) {
-			// Pretend the call is a root expression to allow those that are "void".
+			// Pretend the call is a root expression to allow those that are `void`.
 			reduce_call(static_cast<GDScriptParser::CallNode *>(p_return->return_value), false, true);
 		} else {
 			reduce_expression(p_return->return_value);
@@ -2559,28 +2564,30 @@ void GDScriptAnalyzer::resolve_return(GDScriptParser::ReturnNode *p_return) {
 			}
 			result = p_return->return_value->get_datatype();
 		}
-	} else {
-		// Return type is null by default.
-		result.type_source = GDScriptParser::DataType::ANNOTATED_EXPLICIT;
-		result.kind = GDScriptParser::DataType::BUILTIN;
-		result.builtin_type = Variant::NIL;
-		result.is_constant = true;
 	}
 
-	if (has_expected_type && !expected_type.is_variant()) {
+	if (has_expected_type && !expected_type.is_variant() && expected_type.is_hard_type()) {
 		if (result.is_variant() || !result.is_hard_type()) {
+			p_return->use_conversion = true;
 			mark_node_unsafe(p_return);
 			if (!is_type_compatible(expected_type, result, true, p_return)) {
 				downgrade_node_type_source(p_return);
 			}
 		} else if (!is_type_compatible(expected_type, result, true, p_return)) {
-			mark_node_unsafe(p_return);
-			if (!is_type_compatible(result, expected_type)) {
+			if (is_type_compatible(result, expected_type)) {
+				p_return->use_conversion = true;
+				mark_node_unsafe(p_return);
+			} else {
 				push_error(vformat(R"(Cannot return value of type "%s" because the function return type is "%s".)", result.to_string(), expected_type.to_string()), p_return);
 			}
+		} else {
+			if (!is_type_compatible(expected_type, result)) {
+				p_return->use_conversion = true;
+			}
 #ifdef DEBUG_ENABLED
-		} else if (expected_type.builtin_type == Variant::INT && result.builtin_type == Variant::FLOAT) {
-			parser->push_warning(p_return, GDScriptWarning::NARROWING_CONVERSION);
+			if (expected_type.builtin_type == Variant::INT && result.builtin_type == Variant::FLOAT) {
+				parser->push_warning(p_return, GDScriptWarning::NARROWING_CONVERSION);
+			}
 #endif // DEBUG_ENABLED
 		}
 	}
@@ -6531,7 +6538,7 @@ void GDScriptAnalyzer::resolve_pending_lambda_bodies() {
 	GDScriptParser::LambdaNode *previous_lambda = current_lambda;
 	bool previous_static_context = static_context;
 
-	List<GDScriptParser::LambdaNode *> lambdas = pending_body_resolution_lambdas;
+	List<GDScriptParser::LambdaNode *> lambdas = std::move(pending_body_resolution_lambdas);
 	pending_body_resolution_lambdas.clear();
 
 	for (GDScriptParser::LambdaNode *lambda : lambdas) {
