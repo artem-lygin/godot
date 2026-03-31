@@ -7111,6 +7111,12 @@ void TextEdit::set_syntax_highlighter(Ref<SyntaxHighlighter> p_syntax_highlighte
 		syntax_highlighter->set_text_edit(this);
 	}
 	_clear_syntax_highlighting_cache();
+	// Force re-shaping of all lines so that font style choices (bold/italic) from the
+	// new highlighter are applied. Colors are updated at draw time, but font selection
+	// is baked into the shaped text buffer at shape time.
+	for (int i = 0; i < text.size(); i++) {
+		text.invalidate_cache(i, true);
+	}
 	queue_redraw();
 }
 

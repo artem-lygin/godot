@@ -5,57 +5,75 @@
 [![Video demonstration](https://img.youtube.com/vi/pkU5qcE-Os8/maxresdefault.jpg)](https://www.youtube.com/watch?v=pkU5qcE-Os8)
 
 ## Engine Changes Documentation
-This document outlines the modifications made to the Godot Engine core by [Gemini 3 Pro](https://gemini.google.com).
 
 ### 1. Core Engine Modifications
+
 #### `scene/resources/syntax_highlighter.h` & `scene/resources/syntax_highlighter.cpp`
 The `CodeHighlighter` class has been extended to support font styling alongside color highlighting for keywords, member keywords, and color regions.
 
-##### New Member Variables:
+**New member variables:**
+- `keyword_styles`: Dictionary mapping keywords to their font style (int).
+- `member_keyword_styles`: Dictionary mapping member keywords to their font style (int).
+- `ColorRegion::font_style`: int field added to the `ColorRegion` struct.
 
-- `keyword_styles`: A Dictionary mapping keywords to their font style (int).
-- `member_keyword_styles`: A Dictionary mapping member keywords to their font style (int).
-- `ColorRegion` struct now includes an `int font_style` member.
+**New methods:**
+- `add_keyword_style(keyword, font_style)` / `remove_keyword_style` / `has_keyword_style` / `get_keyword_style` / `set_keyword_styles` / `clear_keyword_styles`
+- Equivalent methods for `member_keyword_styles`.
+- `add_color_region(...)`: accepts an optional `p_font_style` argument (default 0) to define the font style for the region.
 
-##### New Methods:
-
-- `add_keyword_style(keyword, font_style)`: Assigns a specific font style to a keyword.
-- `remove_keyword_style(keyword)`: Removes the font style for a keyword.
-- `has_keyword_style(keyword)`: Checks if a keyword has a font style assigned.
-- `get_keyword_style(keyword)`: Retrieves the font style for a keyword.
-  - `set_keyword_styles(styles)`: Batch sets keyword styles.
-- `clear_keyword_styles()`: Clears all keyword styles.
-- Equivalent methods for `member_keyword_styles` (e.g., `add_member_keyword_style`, `get_member_keyword_style`).
-- `add_color_region(...)`: Now accepts an optional `p_font_style` argument (defaulting to 0) to define the font style for the region.
-
-##### Logic Updates:
-
-- `_get_line_syntax_highlighting`: Updated to return a Dictionary that includes font_style information in the column-indexed data. The return format for each column entry now includes the color and the font style.
+**Logic updates:**
+- `_get_line_syntax_highlighting_impl`: per-column Dictionary entries now include `"bold": true` and/or `"italic": true` keys alongside `"color"`.
 
 #### `scene/gui/text_edit.h` & `scene/gui/text_edit.cpp`
-The `TextEdit` control has been updated to render text using the specific font styles provided by the syntax highlighter.
+The `TextEdit` control has been updated to render text using the font styles provided by the syntax highlighter.
 
-##### Rendering Logic:
-- The `TextEdit` now queries the new `font_style` data from the syntax highlighting result.
-- When drawing text, it checks the returned `font_style` (Bold, Italic, Bold-Italic) and selects the appropriate font variation (`font_bold`, `font_italic`, etc.) from the theme to render the text segment.
+**Rendering:**
+- During text shaping, `TextEdit` reads `"bold"`/`"italic"` keys from the syntax highlighting Dictionary and selects `font_bold` or `font_italic` from the theme for that text segment.
+- `ThemeCache` exposes `font_bold` and `font_italic` entries (bound via `BIND_THEME_ITEM`).
 
-##### API:
-- Exposed rendering capability for mixed font styles within the same line.
+**Re-shaping fix:**
+- `set_syntax_highlighter()` now forces re-shaping of all text lines when the highlighter changes. This ensures bold/italic font choices are applied immediately, fixing a regression introduced when the upstream refactor changed the order in which the syntax highlighter is assigned relative to the node entering the scene tree.
 
 ### 2. GDScript Module Modifications
-#### `modules/gdscript/editor/gdscript_highlighter.cpp` & `modules/gdscript/editor/gdscript_highlighter.h`
-The GDScript highlighter has been specifically updated to leverage the new core capabilities, primarily to fix and enhance NodePath highlighting.
 
-##### NodePath Highlighting:
-- Logic was added (or modified) to identifying NodePath literals (starting with `^` and potentially quoted).
-- Explicitly assigns the "NodePath" font style (likely bold or a specific variation) to the entire NodePath literal, including the caret `^` and the path string. This resolves the issue where the string part was falling back to the generic string style.
-- Ensures that NodePaths are visually distinct from regular strings.
+#### `modules/gdscript/editor/gdscript_highlighter.cpp` & `.h`
+The GDScript syntax highlighter leverages the new font-style infrastructure to expose per-token styling via editor settings.
+
+**Per-token font style settings** (all under `text_editor/theme/highlighting/`):
+- `symbol_font_style`, `keyword_font_style`, `control_flow_keyword_font_style`
+- `base_type_font_style`, `engine_type_font_style`, `user_type_font_style`
+- `comment_font_style`, `doc_comment_font_style`, `string_font_style`
+- `function_font_style`, `member_variable_font_style`, `number_font_style`
+- `text_font_style`
+- `gdscript/node_path_font_style`, `gdscript/node_reference_font_style`
+- `gdscript/annotation_font_style`, `gdscript/string_name_font_style`
+
+Each setting accepts `0 = Normal`, `1 = Bold`, `2 = Italic`.
+
+**NodePath highlighting:** NodePath literals (`^"..."`, `^'...'`) are correctly styled across their full length, including the leading `^` and the quoted string.
 
 ### 3. Editor Settings & Theme
-#### `editor/settings/editor_settings.cpp` & `editor/themes/editor_theme_manager.cpp`
-##### Font Style Registration:
-- Updates were made to ensure that the Bold and Italic font variations are correctly registered and accessible to the `TextEdit` via the editor theme.
-- This guarantees that when the highlighter requests a "Bold" style, the editor actually renders it using the bold font variant.
 
-## Summary of Impact
-These changes allow for richer syntax highlighting in the Godot script editor. As a direct result, NodePaths in GDScript are now consistently styled (e.g., in bold) across their entire length, improving code readability and visual consistency. The changes in `CodeHighlighter` and `TextEdit` are generic, meaning other languages or plugins can also leverage this new font styling capability.
+#### `editor/settings/editor_settings.cpp`
+- Registers all `*_font_style` settings listed above with `PROPERTY_HINT_ENUM` (`"Normal,Bold,Italic"`), default `0`.
+- Registers `interface/editor/fonts/code_font_bold` and `interface/editor/fonts/code_font_italic` for selecting the bold/italic monospace font files.
+
+#### `editor/themes/editor_fonts.cpp`
+- Loads `mono_bold_fc` and `mono_italic_fc` font face configurations.
+- Registers them as `source_bold` and `source_italic` in the `EditorFonts` theme.
+
+#### `editor/themes/editor_theme_manager.cpp`
+- Sets `font_bold` and `font_italic` on the `CodeEdit` theme type from `source_bold`/`source_italic`, making them available to `TextEdit` for bold/italic rendering.
+
+## Font Style Bitmask
+
+| Value | Meaning |
+|-------|---------|
+| 0 | Normal |
+| 1 | Bold |
+| 2 | Italic |
+| 3 | Bold + Italic |
+
+## Summary
+
+These changes add per-token font styling (Bold/Italic) to the Godot script editor's GDScript syntax highlighting. Each syntax element (keywords, strings, comments, types, NodePaths, etc.) can be independently configured to appear in Normal, Bold, or Italic weight via Editor Settings. The implementation is generic — `CodeHighlighter` and `TextEdit` changes are language-agnostic and available to any syntax highlighter or plugin.
