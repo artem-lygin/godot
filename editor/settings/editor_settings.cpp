@@ -727,66 +727,108 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	EDITOR_SETTING_BASIC(Variant::STRING, PROPERTY_HINT_ENUM, "text_editor/theme/color_theme", "Default", "Default,Godot 2,Custom")
 
 	// Theme: Highlighting
-	const LocalVector<StringName> basic_text_editor_settings = {
-		"text_editor/theme/highlighting/symbol_color",
-		"text_editor/theme/highlighting/keyword_color",
-		"text_editor/theme/highlighting/control_flow_keyword_color",
-		"text_editor/theme/highlighting/base_type_color",
-		"text_editor/theme/highlighting/engine_type_color",
-		"text_editor/theme/highlighting/user_type_color",
-		"text_editor/theme/highlighting/comment_color",
-		"text_editor/theme/highlighting/doc_comment_color",
-		"text_editor/theme/highlighting/string_color",
-		"text_editor/theme/highlighting/string_placeholder_color",
-		"text_editor/theme/highlighting/background_color",
-		"text_editor/theme/highlighting/text_color",
-		"text_editor/theme/highlighting/line_number_color",
-		"text_editor/theme/highlighting/safe_line_number_color",
-		"text_editor/theme/highlighting/caret_color",
-		"text_editor/theme/highlighting/caret_background_color",
-		"text_editor/theme/highlighting/text_selected_color",
-		"text_editor/theme/highlighting/selection_color",
-		"text_editor/theme/highlighting/brace_mismatch_color",
-		"text_editor/theme/highlighting/current_line_color",
-		"text_editor/theme/highlighting/line_length_guideline_color",
-		"text_editor/theme/highlighting/word_highlighted_color",
-		"text_editor/theme/highlighting/number_color",
-		"text_editor/theme/highlighting/function_color",
-		"text_editor/theme/highlighting/member_variable_color",
-		"text_editor/theme/highlighting/mark_color",
-	};
 	// These values will be overwritten by EditorThemeManager, but can still be seen in some edge cases.
+	// Each color is registered immediately followed by its font_style setting (if applicable) so they
+	// appear adjacent in the Editor Settings panel.
 	const HashMap<StringName, Color> text_colors = get_godot2_text_editor_theme();
-	for (const KeyValue<StringName, Color> &text_color : text_colors) {
-		if (basic_text_editor_settings.has(text_color.key)) {
-			EDITOR_SETTING_BASIC(Variant::COLOR, PROPERTY_HINT_NONE, text_color.key, text_color.value, "")
-		} else {
-			EDITOR_SETTING(Variant::COLOR, PROPERTY_HINT_NONE, text_color.key, text_color.value, "")
-		}
-	}
 
-	const LocalVector<StringName> text_font_style_settings = {
-		"text_editor/theme/highlighting/symbol_font_style",
-		"text_editor/theme/highlighting/keyword_font_style",
-		"text_editor/theme/highlighting/control_flow_keyword_font_style",
-		"text_editor/theme/highlighting/base_type_font_style",
-		"text_editor/theme/highlighting/engine_type_font_style",
-		"text_editor/theme/highlighting/user_type_font_style",
-		"text_editor/theme/highlighting/comment_font_style",
-		"text_editor/theme/highlighting/doc_comment_font_style",
-		"text_editor/theme/highlighting/string_font_style",
-		"text_editor/theme/highlighting/function_font_style",
-		"text_editor/theme/highlighting/member_variable_font_style",
-		"text_editor/theme/highlighting/number_font_style",
-		"text_editor/theme/highlighting/gdscript/node_path_font_style",
-		"text_editor/theme/highlighting/gdscript/node_reference_font_style",
-		"text_editor/theme/highlighting/gdscript/annotation_font_style",
-		"text_editor/theme/highlighting/gdscript/string_name_font_style",
-		"text_editor/theme/highlighting/text_font_style",
+	// Helper: register a color setting (basic = appears in basic settings view).
+	auto reg_color = [&](const StringName &p_name, bool p_basic) {
+		const Color *c = text_colors.getptr(p_name);
+		_initial_set(p_name, c ? *c : Color(), p_basic);
+		hints[p_name] = PropertyInfo(Variant::COLOR, p_name, PROPERTY_HINT_NONE, "");
 	};
-	for (const StringName &setting : text_font_style_settings) {
-		EDITOR_SETTING_BASIC(Variant::INT, PROPERTY_HINT_ENUM, setting, 0, "Normal,Bold,Italic");
-	}
+	// Helper: register a font_style setting (always basic).
+	auto reg_font_style = [&](const StringName &p_name) {
+		_initial_set(p_name, 0, true);
+		hints[p_name] = PropertyInfo(Variant::INT, p_name, PROPERTY_HINT_ENUM, "Normal,Bold,Italic");
+	};
+
+	// -- Symbols & keywords --
+	reg_color("text_editor/theme/highlighting/symbol_color", true);
+	reg_font_style("text_editor/theme/highlighting/symbol_font_style");
+	reg_color("text_editor/theme/highlighting/keyword_color", true);
+	reg_font_style("text_editor/theme/highlighting/keyword_font_style");
+	reg_color("text_editor/theme/highlighting/control_flow_keyword_color", true);
+	reg_font_style("text_editor/theme/highlighting/control_flow_keyword_font_style");
+
+	// -- Types --
+	reg_color("text_editor/theme/highlighting/base_type_color", true);
+	reg_font_style("text_editor/theme/highlighting/base_type_font_style");
+	reg_color("text_editor/theme/highlighting/engine_type_color", true);
+	reg_font_style("text_editor/theme/highlighting/engine_type_font_style");
+	reg_color("text_editor/theme/highlighting/user_type_color", true);
+	reg_font_style("text_editor/theme/highlighting/user_type_font_style");
+
+	// -- Comments --
+	reg_color("text_editor/theme/highlighting/comment_color", true);
+	reg_font_style("text_editor/theme/highlighting/comment_font_style");
+	reg_color("text_editor/theme/highlighting/doc_comment_color", true);
+	reg_font_style("text_editor/theme/highlighting/doc_comment_font_style");
+
+	// -- Strings --
+	reg_color("text_editor/theme/highlighting/string_color", true);
+	reg_font_style("text_editor/theme/highlighting/string_font_style");
+	reg_color("text_editor/theme/highlighting/string_placeholder_color", true);
+
+	// -- Functions & members --
+	reg_color("text_editor/theme/highlighting/function_color", true);
+	reg_font_style("text_editor/theme/highlighting/function_font_style");
+	reg_color("text_editor/theme/highlighting/member_variable_color", true);
+	reg_font_style("text_editor/theme/highlighting/member_variable_font_style");
+
+	// -- Numbers --
+	reg_color("text_editor/theme/highlighting/number_color", true);
+	reg_font_style("text_editor/theme/highlighting/number_font_style");
+
+	// -- Plain text --
+	reg_color("text_editor/theme/highlighting/text_color", true);
+	reg_font_style("text_editor/theme/highlighting/text_font_style");
+
+	// -- Editor UI colors (no font_style) --
+	reg_color("text_editor/theme/highlighting/background_color", true);
+	reg_color("text_editor/theme/highlighting/completion_background_color", false);
+	reg_color("text_editor/theme/highlighting/completion_selected_color", false);
+	reg_color("text_editor/theme/highlighting/completion_existing_color", false);
+	reg_color("text_editor/theme/highlighting/completion_scroll_color", false);
+	reg_color("text_editor/theme/highlighting/completion_scroll_hovered_color", false);
+	reg_color("text_editor/theme/highlighting/completion_font_color", false);
+	reg_color("text_editor/theme/highlighting/line_number_color", true);
+	reg_color("text_editor/theme/highlighting/safe_line_number_color", true);
+	reg_color("text_editor/theme/highlighting/caret_color", true);
+	reg_color("text_editor/theme/highlighting/caret_background_color", true);
+	reg_color("text_editor/theme/highlighting/text_selected_color", true);
+	reg_color("text_editor/theme/highlighting/selection_color", true);
+	reg_color("text_editor/theme/highlighting/brace_mismatch_color", true);
+	reg_color("text_editor/theme/highlighting/current_line_color", true);
+	reg_color("text_editor/theme/highlighting/line_length_guideline_color", true);
+	reg_color("text_editor/theme/highlighting/word_highlighted_color", true);
+	reg_color("text_editor/theme/highlighting/mark_color", true);
+	reg_color("text_editor/theme/highlighting/warning_color", false);
+	reg_color("text_editor/theme/highlighting/bookmark_color", false);
+	reg_color("text_editor/theme/highlighting/breakpoint_color", false);
+	reg_color("text_editor/theme/highlighting/executing_line_color", false);
+	reg_color("text_editor/theme/highlighting/code_folding_color", false);
+	reg_color("text_editor/theme/highlighting/folded_code_region_color", false);
+	reg_color("text_editor/theme/highlighting/search_result_color", false);
+	reg_color("text_editor/theme/highlighting/search_result_border_color", false);
+
+	// -- GDScript-specific --
+	reg_color("text_editor/theme/highlighting/gdscript/function_definition_color", false);
+	reg_color("text_editor/theme/highlighting/gdscript/global_function_color", false);
+	reg_color("text_editor/theme/highlighting/gdscript/node_path_color", false);
+	reg_font_style("text_editor/theme/highlighting/gdscript/node_path_font_style");
+	reg_color("text_editor/theme/highlighting/gdscript/node_reference_color", false);
+	reg_font_style("text_editor/theme/highlighting/gdscript/node_reference_font_style");
+	reg_color("text_editor/theme/highlighting/gdscript/annotation_color", false);
+	reg_font_style("text_editor/theme/highlighting/gdscript/annotation_font_style");
+	reg_color("text_editor/theme/highlighting/gdscript/string_name_color", false);
+	reg_font_style("text_editor/theme/highlighting/gdscript/string_name_font_style");
+
+	// -- Comment marker colors --
+	reg_color("text_editor/theme/highlighting/comment_markers/critical_color", false);
+	reg_color("text_editor/theme/highlighting/comment_markers/warning_color", false);
+	reg_color("text_editor/theme/highlighting/comment_markers/notice_color", false);
 
 	// The list is based on <https://github.com/KDE/syntax-highlighting/blob/master/data/syntax/alert.xml>.
 	_initial_set("text_editor/theme/highlighting/comment_markers/critical_list", "ALERT,ATTENTION,CAUTION,CRITICAL,DANGER,SECURITY");
